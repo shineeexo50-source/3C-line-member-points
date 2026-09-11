@@ -1,27 +1,36 @@
 const timeout=()=>AbortSignal.timeout(20000);
-function fail(message,status=400){const e=new Error(message);e.status=status;throw e;}
+function fail(message,status=400,code){const e=new Error(message);e.status=status;e.code=code;throw e;}
+function databaseSettings(){
+ const url=(process.env.SUPABASE_URL||'').trim().replace(/\/$/,'');const key=(process.env.SUPABASE_SECRET_KEY||'').trim();
+ let parsed;try{parsed=new URL(url);}catch{fail('會員服務設定尚未完成（CFG-URL），請聯絡店家。',503,'CFG-URL');}
+ if(parsed.protocol!=='https:'||parsed.pathname!=='/'||parsed.search||parsed.hash||parsed.username||parsed.password)fail('會員服務網址設定不正確（CFG-URL），請聯絡店家。',503,'CFG-URL');
+ if(!key||key.startsWith('sb_publishable_')||(!key.startsWith('sb_secret_')&&!key.startsWith('eyJ')))fail('會員服務金鑰設定不正確（CFG-KEY），請聯絡店家。',503,'CFG-KEY');
+ return {url,key};
+}
 async function rpc(name,body){
- const key=process.env.SUPABASE_SECRET_KEY,headers={apikey:key,'Content-Type':'application/json'};
+ const {url,key}=databaseSettings(),headers={apikey:key,'Content-Type':'application/json'};
  if(key?.startsWith('eyJ'))headers.Authorization=`Bearer ${key}`;
- const r=await fetch(process.env.SUPABASE_URL+'/rest/v1/rpc/'+name,{method:'POST',headers,body:JSON.stringify(body),signal:timeout()});
+ let r;try{r=await fetch(url+'/rest/v1/rpc/'+name,{method:'POST',headers,body:JSON.stringify(body),signal:timeout()});}catch{fail('會員服務連線逾時（DB-NET），請稍後重試。',503,'DB-NET');}
  const d=await r.json().catch(()=>null);
  if(!r.ok){
-  if(d?.code==='42501')fail('此帳號沒有管理權限',403);
+  if(r.status===401)fail('會員服務驗證失敗（DB-KEY），請聯絡店家。',503,'DB-KEY');
+  if(d?.code==='42501'){if(d.message==='沒有管理權限')fail('此帳號沒有管理權限',403);fail('會員服務存取權限不足（DB-PERM），請聯絡店家。',503,'DB-PERM');}
+  if(r.status===403)fail('會員服務存取權限不足（DB-PERM），請聯絡店家。',503,'DB-PERM');
   if(d?.code==='PGRST202'||d?.code==='42883')fail('請先依序執行 sql/04_upgrade_v2.sql 與 sql/06_upgrade_v3.sql，再重新整理',503);
   if(d?.code==='P0001')fail(d.message);
   if(['22P02','22007','22008','22003','23502','23514'].includes(d?.code))fail('資料格式不正確，請檢查金額、日期與會員編號');
   if(d?.code==='23505')fail('訂單編號已使用，請重新查詢確認交易');
-  fail('資料服務失敗，請檢查 Supabase 設定或稍後重試',502);
+  fail('會員資料暫時無法讀取（DB-RPC），請稍後重試或聯絡店家。',502,'DB-RPC');
  }return d;
 }
 async function verifiedLine(token){
  if(!token)fail('請先使用 LINE 登入',401);
- const r=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:token,client_id:process.env.LINE_CHANNEL_ID}),signal:timeout()});
+ const r=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:token,client_id:(process.env.LINE_CHANNEL_ID||'').trim()}),signal:timeout()});
  const d=await r.json();if(!r.ok||!d.sub)fail('LINE 登入已失效，請重新開啟會員頁',401);return d;
 }
 async function verifiedUser(token){
  if(!token)fail('請先登入管理端',401);
- const r=await fetch(process.env.SUPABASE_URL+'/auth/v1/user',{headers:{apikey:process.env.SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${token}`},signal:timeout()});
+ const r=await fetch((process.env.SUPABASE_URL||'').trim().replace(/\/$/,'')+'/auth/v1/user',{headers:{apikey:(process.env.SUPABASE_PUBLISHABLE_KEY||'').trim(),Authorization:`Bearer ${token}`},signal:timeout()});
  const d=await r.json();if(r.status>=500||r.status===429)fail('登入服務暫時忙碌，請稍後重試',503);if(!r.ok||!d.id)fail('管理登入已過期，請重新登入',401);return d.id;
 }
 const ACCESS_COOKIE='__Host-mp_access',REFRESH_COOKIE='__Host-mp_refresh';
@@ -38,7 +47,7 @@ async function restoreSession(req,res){
  }
  if(actor){await rpc('require_admin_v2',{p_actor:actor});return actor;}
  if(!jar[REFRESH_COOKIE]){sessionCookies(res,'','');fail('請先登入管理端',401);}
- const r=await fetch(process.env.SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:process.env.SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:jar[REFRESH_COOKIE]}),signal:timeout()});
+ const r=await fetch((process.env.SUPABASE_URL||'').trim().replace(/\/$/,'')+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:(process.env.SUPABASE_PUBLISHABLE_KEY||'').trim(),'Content-Type':'application/json'},body:JSON.stringify({refresh_token:jar[REFRESH_COOKIE]}),signal:timeout()});
  const d=await r.json();
  if(!r.ok||!d.access_token||!d.refresh_token){
   if(r.status>=500||r.status===429)fail('登入服務暫時忙碌，請稍後重試',503);
@@ -61,7 +70,7 @@ export default async function handler(req,res){
   if(b.action==='config')return send({liffId:process.env.LIFF_ID,store:process.env.STORE_NAME||'會員點數',business:process.env.BUSINESS_NAME||'',contact:process.env.SUPPORT_CONTACT||''});
   if(b.action==='login'){
    if(typeof b.email!=='string'||typeof b.password!=='string'||b.email.length>254||b.password.length>1000)fail('請輸入正確帳號密碼');
-   const r=await fetch(process.env.SUPABASE_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:process.env.SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json'},body:JSON.stringify({email:b.email,password:b.password}),signal:timeout()});
+   const r=await fetch((process.env.SUPABASE_URL||'').trim().replace(/\/$/,'')+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:(process.env.SUPABASE_PUBLISHABLE_KEY||'').trim(),'Content-Type':'application/json'},body:JSON.stringify({email:b.email,password:b.password}),signal:timeout()});
    const d=await r.json();if(!r.ok)fail('帳號或密碼錯誤，或嘗試次數過多',401);
    const actor=await verifiedUser(d.access_token);await rpc('require_admin_v2',{p_actor:actor});
    if(!d.refresh_token)fail('登入服務未回傳完整憑證',502);
@@ -71,7 +80,7 @@ export default async function handler(req,res){
   if(b.action==='logout'){
    // Always remove this browser's credentials. Revocation is best effort if Auth is offline.
    sessionCookies(res,'','');let revoked=false;
-   if(jar[ACCESS_COOKIE])try{const r=await fetch(process.env.SUPABASE_URL+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:process.env.SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${jar[ACCESS_COOKIE]}`},signal:timeout()});revoked=r.ok;}catch{}
+   if(jar[ACCESS_COOKIE])try{const r=await fetch((process.env.SUPABASE_URL||'').trim().replace(/\/$/,'')+'/auth/v1/logout?scope=local',{method:'POST',headers:{apikey:(process.env.SUPABASE_PUBLISHABLE_KEY||'').trim(),Authorization:`Bearer ${jar[ACCESS_COOKIE]}`},signal:timeout()});revoked=r.ok;}catch{}
    return send({authenticated:false,revoked});
   }
   if(b.action==='me'){
@@ -91,5 +100,5 @@ export default async function handler(req,res){
   if(b.action==='export')return send(await rpc('admin_export_v2',{...args,p_month:b.month,p_cursor:b.cursor||null}));
   if(b.action==='import')return send(await rpc('admin_import_v2',{...args,p_rows:b.rows,p_dry:b.dry_run!==false}));
   fail('不支援的操作');
- }catch(e){if(e.status===403&&e.message==='此帳號沒有管理權限')sessionCookies(res,'','');res.status(e.status||500).json({error:e.status?e.message:'暫時無法連線，請稍後重試或檢查服務設定'});}
+ }catch(e){if(e.status===403&&e.message==='此帳號沒有管理權限')sessionCookies(res,'','');res.status(e.status||500).json({error:e.status?e.message:'暫時無法連線，請稍後重試或檢查服務設定',...(e.code?{code:e.code}:{})});}
 }
