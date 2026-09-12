@@ -1,10 +1,10 @@
-import {el,button,panel,money,dateText,status} from './core.js';
+import {el,button,panel,money,dateText,status} from './core.js?v=f8bd61902963';
 function memberQrPayload(id){
  try{if(location.protocol==='http:'||location.protocol==='https:')return new URL(`/admin.html?member=${encodeURIComponent(id)}&source=qr`,location.origin).href;}catch{}
  return String(id);
 }
 export async function showMember(d,updatedAt){
- const {makeQrSvg}=await import('./qr-svg.js');
+ const {makeQrSvg}=await import('./qr-svg.js?v=f8bd61902963');
  const dialog=el('dialog',undefined,'member-pass wallet-pass-dialog ios27-pass-dialog');
  const shell=el('section',undefined,'wallet-pass ios27-wallet-pass');
  const top=el('div',undefined,'wallet-pass-top');

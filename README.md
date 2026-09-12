@@ -1,27 +1,52 @@
-# LINE 會員點數系統 V3｜完整升級與操作手冊
+# 5% 回饋版本 v3.7.2-rebate5
 
-**版本：3.0.0｜2026-09-10**
+5% 回饋版本｜v3.7.2-rebate5
+
+沿用原版的滿百規則：每筆折抵後實付每滿 NT$100 回饋 5 點；1 點折 NT$1。
+公式：floor(實付金額 / 100) × 5。未滿百元的部分不跨筆累積。
+例：實付 99 元 → 0 點；100 元 → 5 點；199 元 → 5 點；500 元 → 25 點；1,000 元 → 50 點。
+
+已同步更新資料庫建置、管理端結帳與 CSV 匯入預覽、備份驗證、會員說明、展示數字及驗收腳本，並重新產生 dist。
+
+本包沿用「從 0 開始完整版」用途。新 Supabase 專案請依 README 執行本包的 01、04、06 SQL，再設定管理員及部署。
+既有 10% 資料庫不會因上傳前端而變成 5%；不要在原資料庫重跑 01，也不要把舊 10% 備份直接還原到本版。已有交易時需要另行規劃保留歷史回饋的切換。
+原附 PNG 是原版外觀截圖，僅供版面參考；5% 規則及數字以本版 HTML 與程式為準。
+
+---
+
+# C_寫實微可愛版｜完整詳細操作手冊
+
+**網站版本：3.1.2｜資料庫版本：3.0.0｜2026-09-11**
 
 程式已完成升級、建置與本機驗證。這份 ZIP 不會自動更新你的線上系統；請依「既有系統升級」完成 SQL 與 GitHub 更新，再測試 LINE。
 
-## 0. 先看這裡：你現有網站要怎麼升級
+## 0. 本檔用途與版本
 
-**已有網站：不要刪資料、不重建 Supabase、不重跑 01_setup.sql。**
+**這是 C_寫實微可愛版 的完整詳細操作版，網站 3.1.2，資料庫 3.0.0。** 寫實銀色手機、微笑螢幕、白色耳機與薄荷綠配件，搭配深藍會員卡。
 
-1. 先以 Supabase 的資料庫備份保存現況，記下 GitHub 目前 Commit。V2 沒有網頁 JSON 備份，升級前請使用平台備份或第 12 節的 CLI 流程。
-2. Supabase → SQL Editor → New query → 貼 `sql/04_upgrade_v2.sql` 全部 → Run。已執行過也可重跑。
-3. 再開 New query → 貼 `sql/06_upgrade_v3.sql` 全部 → Run。
-4. GitHub 更新 ZIP 解壓後 `line-member-points` 裡的完整檔案與資料夾。根目錄必須直接有 `package.json`、`api`、`public`、`scripts`；不要上傳 ZIP 本身。
-5. Commit 後到 Vercel 查看該 Commit 的部署。保留原有環境變數。正式網域指向這筆成功部署後，重新開啟 `/admin.html`。
-6. 管理端頁尾要顯示 **版本 3.0.0** 和更新時間；登入後按「檢查資料庫版本」，網站與資料庫都應顯示 3.0.0。
-7. 執行 `sql/07_verify_v3_rollback.sql` 驗收。它使用暫存會員，結尾回滾，不留下測試交易；audit 序號跳號屬正常。
-8. 管理端「備份與還原」下載第一份 JSON，確認下載成功並保存到私人位置。
+本包包含完整程式、SQL、驗收腳本、CSV 範本與本份詳細手冊。下方保留從零建立 Supabase、GitHub、Vercel、LINE Developers 的逐步設定，以及登入、管理、圖表、匯入匯出、備份還原的全部操作。
 
-正式 LINE 入口和 Production 網址沒有改變時，不必重建 LIFF。SQL 成功不代表網站已更新，必須完成 GitHub 上傳與 Vercel 部署。
+已經有 V3 資料庫的使用者：上傳本包 line-member-points 資料夾裡的程式到目前 repository 原路徑，保留既有環境變數，部署後核對網站版本 3.1.2；不再執行 SQL。選擇另一種風格時，也用相同方法更新程式，資料不變。
 
-**登入保持：** 使用 HTTPS、HttpOnly Cookie；同一瀏覽器重新整理後可恢復登入。更換瀏覽器、網域、清除 Cookie 或登入遭撤銷時，仍需重新登入。Safari 與 LINE 內建瀏覽器可能各自保存登入；未提交的表單不會自動保存。
+從零建立新資料庫的使用者：依第 4 節順序執行 01 → 04 → 06，再建立管理員。舊 V1／V2 資料庫才依第 2 節升級；已有資料不要重跑 01。
 
-## 0.1 V3 新增內容
+上傳時根目錄須直接有 package.json、api、public、scripts。不要上傳整個 ZIP 或多包一層資料夾。圖片 public/iphone18-hero.webp 必須作為檔案一起上傳；文末複製按鈕只供文字程式碼使用。
+
+A、B、C 是可互換的外觀版本，不是兩套要同時安裝的系統。只上傳選定風格的一整套檔案，不混合 public 檔案。
+
+## 0.A 客戶端與可靠性功能
+
+- 3C 識別標誌、深藍薄荷綠會員卡、原創珍珠寫實微笑手機吉祥物；所有正式數字仍來自本人資料。
+- 大字顯示可用點數及折抵金額，一鍵出示會員卡，完整會員編號可複製；剪貼簿失敗時提供手動選取。
+- 保留獲點小日記；顯示同日有效回饋，不向客戶回傳交易品項或單筆金額。
+- LINE 元件載入逾時可重試；登入過期提供重新登入入口；回到頁面超過 60 秒自動更新、同時刷新合併為一次請求。
+- 網路中斷或刷新失敗時保留上次資料，清楚標示尚未更新，避免誤認舊餘額。
+- 改善 CFG-URL、CFG-KEY、DB-KEY、DB-PERM、DB-NET、DB-RPC 診斷；不把金鑰或原始錯誤細節回傳給客戶。
+- PNG 為 AI 設計示意；互動 HTML 使用正式 customer-ui.js。預覽數字全部為示範，不含真實會員資訊。
+
+本次 29 項 API／CSV／登入／診斷測試通過；SQL 不變，沿用 V3 既有資料庫驗證。未在你的正式 LINE 或手機做端到端實測；先前金鑰連線問題仍需依實際錯誤確認，不能保證換版自動修復。
+
+## 0.1 保留的 V3 管理功能
 
 | 功能 | 使用方式 |
 |---|---|
@@ -54,11 +79,11 @@
 | CSV 匯入 | 範本下載、品項合併、先檢查不入帳、確認後正式匯入、重複訂單檢查 |
 | 速度優化 | 公開設定改為靜態檔、LINE 只初始化一次、管理頁不載入 LINE SDK、查詢合併與索引、交易分頁 |
 
-**沒有改變的點數規則：** 每筆實付每滿 100 元回饋 10 點；1 點折 1 元。原金額－折抵＝實付；不足部分不跨筆累積。點數沒有到期日。
+**本版 5% 點數規則：** 每筆實付每滿 100 元回饋 5 點（5%）；1 點折 1 元。原金額－折抵＝實付；不足部分不跨筆累積。點數沒有到期日。
 
-例：第一筆 1,000 元送 100 點；第二筆原金額 500 元、折抵 100 點，實付 400 元再送 40 點。累計實付 1,400 元、可用餘額 40 點。
+例：第一筆 1,000 元送 50 點；第二筆原金額 500 元、折抵 50 點，實付 450 元再送 20 點。累計實付 1,450 元、可用餘額 20 點。
 
-## 2. 既有系統升級（你已經有 Supabase／GitHub／Vercel 時）
+## 2. 舊 V1／V2 資料庫升到 V3（已是 V3 請跳過）
 
 **請沿用現有專案、會員資料、管理員與 LINE LIFF。不用全部重建。** 這個升級適用本對話原先交付的 v1 資料表（admins、members、transactions、audit）。若你另行修改過表名或資料結構，應先核對差異。
 
@@ -78,7 +103,7 @@
 
 若 SQL 未成功，先處理錯誤，不要繼續上線 v2。新版 API 缺少函式時會提示依序執行 04_upgrade_v2.sql 和 06_upgrade_v3.sql。
 
-## 3. 必要網站檔案（只有手機也可逐檔貼上）
+## 3. 必要網站檔案（圖片也需上傳，電腦可一次拖曳）
 
 手冊底部有每個檔案的全部程式碼及複製按鈕。iPhone 可在 Safari 使用「要求桌面網站」操作 GitHub。
 
@@ -90,7 +115,11 @@
 | scripts/build.mjs | 將 public 複製到 dist，生成安全的公開設定 |
 | api/app.js | LINE／管理員驗證、受保護的資料 API |
 | public/index.html | 客戶端入口 |
-| public/app.js | 客戶會員卡與每日獲點 |
+| public/app.js | LINE 登入、更新、重試與每日獲點 |
+| public/customer-ui.js | 新會員卡與出示會員卡介面 |
+| public/iphone18-hero.webp | 原創寫實微笑手機圖片，必須以檔案上傳，不是貼文字 |
+| public/favicon-realistic.svg | 3C 識別圖示 |
+| public/preview.html、public/preview.js | 不連資料庫的示範頁 |
 | public/admin.html | 管理端入口 |
 | public/admin.js | 管理、交易、報表與匯入 |
 | public/core.js | 共用介面、資料請求與下載功能 |
@@ -287,8 +316,8 @@ PGlite 是本機 PostgreSQL 測試環境，不代表已測過你的 Supabase 網
 ### 正式上線請實際確認
 1. A／B 兩個 LINE 帳號顯示不同會員卡。
 2. A、B 看不到交易明細；A 當天獲點日記只顯示 A 的日期與點數。
-3. 管理員為 A 新增手機殼 300＋兩條線各 100：原金額 500、實付 500、回饋 50。
-4. 再新增原金額 200、折抵 50：實付 150、回饋 10。A 累計實付 650、餘額 10，同日獲點日記合計 60。
+3. 管理員為 A 新增手機殼 300＋兩條線各 100：原金額 500、實付 500、回饋 25。
+4. 再新增原金額 200、折抵 25：實付 175、回饋 5。A 累計實付 675、餘額 5，同日獲點日記合計 30。
 5. 管理端圖表／客戶比較與上述交易一致；B 不受影響。
 6. 點開交易可看購買項目；舊交易顯示未填品項，可補充但不能改合計。
 7. 作廢第二筆：累計實付回 500、餘額 50、同日有效獲點回 50。
@@ -298,11 +327,13 @@ PGlite 是本機 PostgreSQL 測試環境，不代表已測過你的 Supabase 網
 
 ## 11. 常見錯誤
 
+新版診斷碼：CFG-URL（網址格式）、CFG-KEY（Secret 欄位格式）、DB-KEY（金鑰被拒絕）、DB-PERM（資料庫存取權限）、DB-NET（連線逾時）、DB-RPC（其他 RPC 錯誤）。先核對平台設定，不要刪表或關閉 RLS。請按代碼核對設定並確認重新部署。
+
 | 現象 | 處理 |
 |---|---|
 | Cannot find module scripts/build.mjs | GitHub 根目錄必須有 scripts 資料夾與 build.mjs，路徑不可少一層 |
 | 缺少 SQL 函式 | 依序完整執行 04_upgrade_v2.sql、06_upgrade_v3.sql，不能只貼幾行 |
-| 仍是舊畫面 | 開正式網址 /config.json，version 應為 3.0.0；若不是，核對 GitHub package.json 與 Vercel Source Commit。若是，關閉舊視窗再開管理端，核對頁尾版本 |
+| 仍是舊畫面 | 開正式網址 /config.json，version 應為 3.1.2；若不是，核對 GitHub package.json 與 Vercel Source Commit。若是，關閉舊視窗再開管理端，核對頁尾版本 |
 | config.json 缺少 LIFF_ID | Vercel 添加 LIFF_ID，Save 後 Redeploy |
 | 管理員沒有權限 | Authentication 建 User 後還需把該 UUID 加入 admins；用 02_add_admin.sql |
 | 自己可登入，客戶不能 | LINE Login channel 是否 Published，LIFF openid／profile 是否勾選 |
@@ -388,3 +419,30 @@ supabase db dump --db-url "你的資料庫連線字串" -f data.sql --use-copy -
 - Vercel Hobby 商用限制：https://vercel.com/docs/plans/hobby
 
 程式保存在 GitHub，交易與會員保存在 Supabase。更新網頁不會自動備份資料庫，請另行維持適當的資料備份。
+
+
+## v3.5.3 MD2000 短會員碼
+升級既有資料庫請執行 `sql/08_upgrade_v3_5_3_short_member_code.sql`。此腳本只更新管理端搜尋函式，不修改會員、點數或交易資料。手機會員卡使用 `M` + UUID 前 10 碼作為 Code 128 短碼。
+
+
+## v3.6.0 QR-only + iOS 27-style
+- 移除客戶會員卡 Code 128 / MD2000 條碼顯示，改以大型 QR Code 為唯一掃描識別。
+- 客戶 QR 會導向 `/admin.html?member=<會員ID>&source=qr`；店員可直接使用 iPhone 相機掃描。若管理端已登入會直接開啟會員，未登入則登入後接續開啟。
+- 客戶端與管理端採 iOS 27 Liquid Glass 靈感：高對比半透明材質、浮動工具列、玻璃按鈕與更清楚的內容層級。
+- 從 v3.1.2 升級此版本不需要資料庫 migration；v3.5.3 的短會員碼 migration 不再是必要條件。
+
+## v3.7.0 Checkout-first admin + QR camera lookup
+- 會員頁改為「新增消費優先」：結帳區約佔桌面主畫面 70%+，會員資料縮成右側小卡並預設收合編輯欄位。
+- 新增消費拆成 3 個高辨識步驟：商品與金額、點數折抵、確認收款；「本次實付」放大顯示，儲存按鈕加大。
+- 管理端 QR 掃描按鈕改為一鍵開後鏡頭；成功辨識會員 QR 後直接開啟該會員與新增消費。
+- QR 掃描採漸進相容：支援 BarcodeDetector 的瀏覽器使用原生辨識；其他瀏覽器載入 jsQR 相容層。若瀏覽器/權限阻擋，客戶 QR 本身仍是管理端直達連結，可由手機系統相機掃描後直接開會員。
+- API 與 SQL 無變更，從 3.1.2 升級不需要 migration。
+
+## v3.7.2 Newest-member checkout directory
+
+- Removed the checkout shortcut strip and its hidden keyboard shortcuts.
+- The member / checkout page now loads the newest members immediately instead of showing an empty state.
+- Added a “最近加入會員” area backed by the real member table, not local browser history.
+- The full member directory is shown by default and sorted by member `created_at` descending.
+- Member rows display name, phone, join time, member id and a direct “開始新增消費” action.
+- QR member lookup and the checkout-first layout remain unchanged.

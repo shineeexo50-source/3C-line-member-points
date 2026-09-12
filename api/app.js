@@ -55,11 +55,15 @@ async function restoreSession(req,res){
  }
  actor=await verifiedUser(d.access_token);await rpc('require_admin_v2',{p_actor:actor});sessionCookies(res,d.access_token,d.refresh_token);return actor;
 }
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,MONTH_RE=/^\d{4}-(0[1-9]|1[0-2])$/;
+function cleanMemberId(v){const s=String(v||'').trim();if(!UUID_RE.test(s))fail('會員編號格式不正確');return s.toLowerCase();}
+function cleanMonth(v){const s=String(v||'').trim();if(!MONTH_RE.test(s))fail('月份格式不正確');return s;}
 export default async function handler(req,res){
- const began=performance.now();res.setHeader('Cache-Control','no-store');
+ const began=performance.now();res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
  const send=d=>{res.setHeader('Server-Timing',`app;dur=${Math.round(performance.now()-began)}`);return res.json(d);};
  try{
   if(req.method!=='POST')return res.status(405).json({error:'請使用 POST'});
+  const fetchSite=String(req.headers['sec-fetch-site']||'');if(fetchSite==='cross-site')fail('來源不允許',403);
   if(req.headers.origin&&req.headers.origin!==`https://${req.headers.host}`)fail('來源不允許',403);
   if(req.headers['x-member-app']!=='1')fail('請重新整理網站後再操作',403);
   let b;try{b=typeof req.body==='string'?JSON.parse(req.body):req.body;}catch{fail('請求格式不正確');}
@@ -92,12 +96,12 @@ export default async function handler(req,res){
   const actor=await verifiedUser(jar[ACCESS_COOKIE]||token);
   const args={p_actor:actor};
   if(['health','audit','ledger','reconcile','backup'].includes(b.action))return send(await rpc('admin_operations_v3',{...args,p_action:b.action,p_data:b.data||{}}));
-  if(b.action==='search')return send(await rpc('admin_members_v2',{...args,p_query:String(b.query||''),p_offset:Math.max(0,parseInt(b.offset)||0)}));
-  if(b.action==='detail')return send(await rpc('admin_detail_v2',{...args,p_member:b.member_id,p_cursor:b.cursor||null,p_summary:!b.cursor}));
+  if(b.action==='search'){const q=String(b.query||'').trim();if(q.length>200)fail('搜尋內容過長');return send(await rpc('admin_members_v2',{...args,p_query:q,p_offset:Math.max(0,parseInt(b.offset)||0)}));}
+  if(b.action==='detail')return send(await rpc('admin_detail_v2',{...args,p_member:cleanMemberId(b.member_id),p_cursor:b.cursor||null,p_summary:!b.cursor}));
   if(['sale','profile','void','items'].includes(b.action))return send(await rpc('admin_write_v2',{...args,p_action:b.action,p_data:b.data||{}}));
-  if(b.action==='report')return send(await rpc('admin_report_v3',{...args,p_month:b.month,p_mode:b.mode==='full'?'full':'same'}));
-  if(b.action==='compare')return send(await rpc('admin_compare_v3',{...args,p_month:b.month,p_offset:Math.max(0,parseInt(b.offset)||0),p_sort:b.sort==='visits'?'visits':'paid',p_mode:b.mode==='full'?'full':'same'}));
-  if(b.action==='export')return send(await rpc('admin_export_v2',{...args,p_month:b.month,p_cursor:b.cursor||null}));
+  if(b.action==='report')return send(await rpc('admin_report_v3',{...args,p_month:cleanMonth(b.month),p_mode:b.mode==='full'?'full':'same'}));
+  if(b.action==='compare')return send(await rpc('admin_compare_v3',{...args,p_month:cleanMonth(b.month),p_offset:Math.max(0,parseInt(b.offset)||0),p_sort:b.sort==='visits'?'visits':'paid',p_mode:b.mode==='full'?'full':'same'}));
+  if(b.action==='export')return send(await rpc('admin_export_v2',{...args,p_month:cleanMonth(b.month),p_cursor:b.cursor||null}));
   if(b.action==='import')return send(await rpc('admin_import_v2',{...args,p_rows:b.rows,p_dry:b.dry_run!==false}));
   fail('不支援的操作');
  }catch(e){if(e.status===403&&e.message==='此帳號沒有管理權限')sessionCookies(res,'','');res.status(e.status||500).json({error:e.status?e.message:'暫時無法連線，請稍後重試或檢查服務設定',...(e.code?{code:e.code}:{})});}
