@@ -16,7 +16,7 @@ async function rpc(name,body){
   if(r.status===401)fail('會員服務驗證失敗（DB-KEY），請聯絡店家。',503,'DB-KEY');
   if(d?.code==='42501'){if(d.message==='沒有管理權限')fail('此帳號沒有管理權限',403);fail('會員服務存取權限不足（DB-PERM），請聯絡店家。',503,'DB-PERM');}
   if(r.status===403)fail('會員服務存取權限不足（DB-PERM），請聯絡店家。',503,'DB-PERM');
-  if(d?.code==='PGRST202'||d?.code==='42883')fail('資料庫功能尚未升級完成；請依序確認已執行 sql/04_upgrade_v2.sql、sql/06_upgrade_v3.sql、sql/08_upgrade_v3_8_custom_orders.sql、sql/09_upgrade_v3_9_admin_ui.sql 後重新整理',503);
+  if(['PGRST202','42883','42703','42P01'].includes(d?.code))fail('資料庫結構尚未完成或版本不一致；請執行 sql/10_repair_member_db_rpc.sql 後重新整理',503,'DB-SCHEMA');
   if(d?.code==='P0001')fail(d.message);
   if(['22P02','22007','22008','22003','23502','23514'].includes(d?.code))fail('資料格式不正確，請檢查金額、日期與會員編號');
   if(d?.code==='23505')fail('訂單編號已使用，請重新查詢確認交易');
