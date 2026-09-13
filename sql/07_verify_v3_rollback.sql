@@ -8,7 +8,7 @@ begin
  insert into public.members(line_id,display_name) values(lid,'V3 暫存驗收會員') returning id into m;
  perform public.admin_write_v2(a,'sale',jsonb_build_object('id',tid,'member_id',m,'gross',1000,'redeemed',0,'occurred_at',now(),'items',jsonb_build_array(jsonb_build_object('name','驗收商品','qty',1,'price',1000))));
  d=public.admin_operations_v3(a,'ledger',jsonb_build_object('member_id',m));
- if (d->'rows'->0->>'balance')::bigint<>50 then raise exception '流水帳驗收失敗'; end if;
+ if (d->'rows'->0->>'balance')::bigint<>100 then raise exception '流水帳驗收失敗'; end if;
  perform public.admin_write_v2(a,'void',jsonb_build_object('id',tid,'member_id',m,'reason','驗收回沖'));
  d=public.admin_operations_v3(a,'ledger',jsonb_build_object('member_id',m));
  if (d->'rows'->0->>'balance')::bigint<>0 then raise exception '回沖驗收失敗'; end if;
