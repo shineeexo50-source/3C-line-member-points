@@ -1,0 +1,16 @@
+.env*
+!.env.example
+node_modules/
+dist/
+.vercel/
+
+# Private operational backups; save outside this repository
+backups/
+*.dump
+*.backup
+會員業務備份_*.json
+還原演練.sql
+正式還原.sql
+roles.sql
+schema.sql
+data.sql
