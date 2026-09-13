@@ -245,3 +245,7 @@ html[data-theme="dark"] .admin .admin-workspace,html[data-theme="dark"] .admin{b
 html[data-theme="dark"] .admin,html[data-theme="dark"] .admin-workspace{background:var(--admin-bg)!important;color:var(--admin-ink)!important}.admin *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 @media(max-width:980px){.admin .member-showcase-head{grid-template-columns:1fr!important}.admin .admin-shell-v39{grid-template-columns:198px minmax(0,1fr)!important}}
 @media(max-width:760px){.admin .admin-shell-v39{display:block!important}.admin .admin-view-v39{padding:15px 12px 42px!important}.admin .member-showcase-stats{grid-template-columns:1fr 1fr!important}.admin .member-avatar{width:72px!important;height:72px!important}.admin .member-section-tabs{position:sticky;top:58px;background:#fff;z-index:5}.admin .admin-mobile-bar{background:#fff!important}.admin .order-board{grid-template-columns:1fr!important}}
+
+/* ProMax v3.9.2 button text alignment fix */
+.admin button{white-space:nowrap}
+.admin .checkout-submit-xl{white-space:nowrap;min-width:max-content}

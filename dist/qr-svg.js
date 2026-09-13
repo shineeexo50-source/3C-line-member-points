@@ -1,5 +1,5 @@
-import QRCode from './qr-lib-index.js?v=d0b5d1b3e54d';
-import QRErrorCorrectLevel from './qr-lib-QRErrorCorrectLevel.js?v=d0b5d1b3e54d';
+import QRCode from './qr-lib-index.js?v=05031f791b31';
+import QRErrorCorrectLevel from './qr-lib-QRErrorCorrectLevel.js?v=05031f791b31';
 
 export function makeQrSvg(text,{size=240,margin=4}={}){
   const qr=new QRCode(-1,QRErrorCorrectLevel.M);

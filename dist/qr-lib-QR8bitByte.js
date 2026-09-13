@@ -1,4 +1,4 @@
-import QRMode from './qr-lib-QRMode.js?v=d0b5d1b3e54d';
+import QRMode from './qr-lib-QRMode.js?v=05031f791b31';
 
 function QR8bitByte(data) {
 	this.mode = QRMode.MODE_8BIT_BYTE;
