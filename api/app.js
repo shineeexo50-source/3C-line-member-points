@@ -23,6 +23,56 @@ async function rpc(name,body){
   fail('會員資料暫時無法讀取（DB-RPC），請稍後重試或聯絡店家。',502,'DB-RPC');
  }return d;
 }
+function restHeaders(){
+ const {key}=databaseSettings(),headers={apikey:key,'Content-Type':'application/json'};
+ if(key?.startsWith('eyJ'))headers.Authorization=`Bearer ${key}`;
+ return headers;
+}
+async function restGet(table,params={}){
+ const {url}=databaseSettings(),u=new URL(url+`/rest/v1/${table}`);
+ for(const [k,v] of Object.entries(params))if(v!==undefined&&v!==null)u.searchParams.set(k,String(v));
+ let r;try{r=await fetch(u,{headers:restHeaders(),signal:timeout()});}catch{fail('會員服務連線逾時（DB-NET），請稍後重試。',503,'DB-NET');}
+ const d=await r.json().catch(()=>null);
+ if(!r.ok){
+  if(r.status===401)fail('會員服務驗證失敗（DB-KEY），請聯絡店家。',503,'DB-KEY');
+  if(r.status===403||d?.code==='42501')fail('會員服務存取權限不足（DB-PERM），請聯絡店家。',503,'DB-PERM');
+  if(['42P01','42703'].includes(d?.code))fail('資料庫結構尚未完成或版本不一致',503,'DB-SCHEMA');
+  fail('會員資料暫時無法讀取（DB-REST），請稍後重試或聯絡店家。',502,'DB-REST');
+ }
+ return Array.isArray(d)?d:[];
+}
+async function requireAdminDirect(actor){
+ const rows=await restGet('admins',{select:'user_id',user_id:`eq.${actor}`,limit:1});
+ if(!rows.length)fail('此帳號沒有管理權限',403);
+}
+function pgQuotedLike(value){return `*${String(value).replace(/\\/g,'\\\\').replace(/"/g,'\\"')}*`;}
+async function membersDirect(actor,query='',offset=0){
+ await requireAdminDirect(actor);const q=String(query||'').trim(),params={select:'id,display_name,phone,note,created_at',order:'created_at.desc,id.asc',offset:Math.max(0,offset),limit:51};
+ if(q){
+  if(UUID_RE.test(q))params.or=`(id.eq.${q},display_name.ilike.${pgQuotedLike(q)},phone.ilike.${pgQuotedLike(q)})`;
+  else params.or=`(display_name.ilike.${pgQuotedLike(q)},phone.ilike.${pgQuotedLike(q)})`;
+ }
+ const rows=await restGet('members',params),has_more=rows.length>50;
+ return {rows:has_more?rows.slice(0,50):rows,has_more};
+}
+async function memberTotalsDirect(memberId){
+ let offset=0,total=0,points=0,visits=0;
+ for(;;){
+  const rows=await restGet('transactions',{select:'paid,earned,redeemed,voided_at',member_id:`eq.${memberId}`,order:'occurred_at.desc',offset,limit:1000});
+  for(const t of rows)if(!t.voided_at){total+=Number(t.paid||0);points+=Number(t.earned||0)-Number(t.redeemed||0);visits++;}
+  if(rows.length<1000)break;offset+=1000;if(offset>100000)fail('會員交易筆數過多，請聯絡店家處理',503,'DB-LIMIT');
+ }
+ return {total,points,visits};
+}
+async function detailDirect(actor,memberId,cursor=null,summary=true){
+ await requireAdminDirect(actor);
+ const members=await restGet('members',{select:'id,display_name,phone,note,created_at',id:`eq.${memberId}`,limit:1});
+ if(!members.length)fail('找不到會員');
+ const offset=Math.max(0,Number(cursor?.offset)||0),rows=await restGet('transactions',{select:'id,gross,redeemed,paid,earned,occurred_at,voided_at,items,note,void_reason,external_id',member_id:`eq.${memberId}`,order:'occurred_at.desc,id.desc',offset,limit:21});
+ const more=rows.length>20,transactions=more?rows.slice(0,20):rows,result={transactions,next:more?{offset:offset+20}:null};
+ if(summary)Object.assign(result,await memberTotalsDirect(memberId),{member:members[0]});
+ return result;
+}
 async function verifiedLine(token){
  if(!token)fail('請先使用 LINE 登入',401);
  const r=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:token,client_id:(process.env.LINE_CHANNEL_ID||'').trim()}),signal:timeout()});
@@ -98,8 +148,8 @@ export default async function handler(req,res){
   if(b.action==='backup')return send(await rpc('admin_backup_v39',args));
   if(b.action==='health')return send(await rpc('admin_health_v39',args));
   if(['audit','ledger','reconcile'].includes(b.action))return send(await rpc('admin_operations_v3',{...args,p_action:b.action,p_data:b.data||{}}));
-  if(b.action==='search'){const q=String(b.query||'').trim();if(q.length>200)fail('搜尋內容過長');return send(await rpc('admin_members_v2',{...args,p_query:q,p_offset:Math.max(0,parseInt(b.offset)||0)}));}
-  if(b.action==='detail')return send(await rpc('admin_detail_v2',{...args,p_member:cleanMemberId(b.member_id),p_cursor:b.cursor||null,p_summary:!b.cursor}));
+  if(b.action==='search'){const q=String(b.query||'').trim();if(q.length>200)fail('搜尋內容過長');return send(await membersDirect(actor,q,Math.max(0,parseInt(b.offset)||0)));}
+  if(b.action==='detail'){const mid=cleanMemberId(b.member_id),cursor=b.cursor||null;return send(await detailDirect(actor,mid,cursor,!cursor));}
   if(b.action==='custom_orders')return send(await rpc('admin_custom_orders_v39',{...args,p_action:String(b.data?.op||''),p_data:b.data||{}}));
   if(b.action==='notify_order'){
    const data=b.data||{},target=await rpc('admin_custom_orders_v39',{...args,p_action:'notify_target',p_data:data});
