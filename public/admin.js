@@ -48,7 +48,7 @@ function rememberMember(member){const rows=readLocal(recentMemberKey).filter(x=>
 function productPresets(){return readLocal(productKey).sort((a,b)=>(b.count||0)-(a.count||0)).slice(0,8);}
 function rememberProducts(items){const rows=readLocal(productKey);for(const item of items){const key=item.name.trim().toLowerCase()+'|'+item.price;const found=rows.find(x=>x.key===key);if(found)found.count=(found.count||0)+item.qty;else rows.push({key,name:item.name,price:item.price,count:item.qty});}writeLocal(productKey,rows.sort((a,b)=>(b.count||0)-(a.count||0)).slice(0,30));}
 function checkoutSuccess(member,payload,receipt){const paid=payload.gross-payload.redeemed,earned=Math.floor(paid/100)*10,box=el('section',undefined,'checkout-success');box.append(el('strong',receipt?.duplicate?'✓ 此交易已存在，沒有重複入帳':'✓ 新增消費完成'),el('span',`${member.display_name} · 實付 ${money(paid)} · 回饋 ${earned.toLocaleString()} 點`));return box;}
-function login(){epoch++;setToken('');root.replaceChildren();const form=el('form',undefined,'card login');form.append(el('p','MEMBER STUDIO','eyebrow'),el('h1','店家管理端'),el('p','查看營運數據，照顧每一位回訪的客人。','muted'));field(form,'管理員 Email','email','email','',true).autocomplete='username';field(form,'密碼','password','password','',true).autocomplete='current-password';submit(form,'登入管理端',async data=>{await api('login',data);setToken('');form.reset();shell();if(!await openQrMemberIfRequested())await homeView();});root.append(form);status('使用已授權的管理員帳號登入。');}
+function login(){epoch++;setToken('');root.replaceChildren();const form=el('form',undefined,'card login');form.append(el('p','MEMBER STUDIO','eyebrow'),el('h1','店家管理端'),el('p','查看營運數據，照顧每一位回訪的客人。','muted'));field(form,'管理員 Email','email','email','',true).autocomplete='username';field(form,'密碼','password','password','',true).autocomplete='current-password';submit(form,'登入管理端',async data=>{await api('login',data);setToken('');form.reset();shell();if(!await openQrMemberIfRequested())await membersListView();});root.append(form);status('使用已授權的管理員帳號登入。');}
 function setActiveAdminView(name){if(name!=='members'){memberHotkeyCleanup();memberHotkeyCleanup=()=>{};memberLiveCleanup();memberLiveCleanup=()=>{};}activeAdminView=name;document.querySelectorAll('[data-admin-nav][data-view]').forEach(b=>{const on=b.dataset.view===name;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false');});}
 function shell(){
  root.replaceChildren();
@@ -56,10 +56,10 @@ function shell(){
  const sideBrand=el('div',undefined,'sidebar-brand');sideBrand.append(el('span','▣','sidebar-logo'),el('div'));sideBrand.lastChild.append(el('strong','幸福選物店'),el('small','STORE MANAGER'));side.append(sideBrand);
  const nav=el('nav',undefined,'sidebar-nav');nav.setAttribute('aria-label','管理功能');
  const navButton=(icon,text,name,fn)=>{const b=button('',async()=>{shell.classList.remove('sidebar-open');setActiveAdminView(name);await fn();},'sidebar-link');b.dataset.view=name;b.dataset.adminNav='1';b.append(el('span',icon,'nav-icon'),el('span',text));nav.append(b);return b;};
- navButton('⌂','首頁','home',homeView);navButton('●','會員管理','members',members);navButton('＋','新增會員','newmember',newMemberView);navButton('●','會員列表','memberlist',membersListView);navButton('✓','新增消費','checkout',checkoutHub);navButton('🎁','客訂商品','orders',ordersView);navButton('▤','消費紀錄','transactions',transactionsView);navButton('▥','統計報表','reports',reportsView);navButton('♟','店員管理','staff',staffView);navButton('⚙','系統設定','settings',settingsView);
+ navButton('●','會員列表','memberlist',membersListView);navButton('＋','新增會員','newmember',newMemberView);navButton('🎁','客訂商品','orders',ordersView);navButton('▥','統計報表','reports',reportsView);navButton('♟','店員管理','staff',staffView);navButton('⚙','系統設定','settings',settingsView);
  side.append(nav);const foot=el('div',undefined,'sidebar-foot');foot.append(el('small','簡單管理 · 快速服務'),button('登出',logout,'sidebar-logout'));side.append(foot);
- const top=el('div',undefined,'admin-mobile-bar'),menu=button('☰',()=>shell.classList.toggle('sidebar-open'),'mobile-menu-button');top.append(menu,el('strong','管理端'),el('span','v3.9.5','mobile-version'));
- const desktopHead=el('header',undefined,'admin-desktop-header'),brand=el('div',undefined,'admin-head-brand'),user=el('div',undefined,'admin-head-user');brand.append(el('span','🏪','admin-head-mark'),el('strong','v3.9.5 管理端'),el('span','用心經營，讓每一位顧客都變成老朋友 ♡','admin-head-tagline'));user.append(el('span','●','admin-head-bell'),el('div','管理者','admin-head-user-copy'));desktopHead.append(brand,user);
+ const top=el('div',undefined,'admin-mobile-bar'),menu=button('☰',()=>shell.classList.toggle('sidebar-open'),'mobile-menu-button');top.append(menu,el('strong','管理端'),el('span','v3.9.2','mobile-version'));
+ const desktopHead=el('header',undefined,'admin-desktop-header'),brand=el('div',undefined,'admin-head-brand'),user=el('div',undefined,'admin-head-user');brand.append(el('span','🏪','admin-head-mark'),el('strong','v3.9.2 管理端'),el('span','用心經營，讓每一位顧客都變成老朋友 ♡','admin-head-tagline'));user.append(el('span','●','admin-head-bell'),el('div','管理者','admin-head-user-copy'));desktopHead.append(brand,user);
  view=el('div',undefined,'admin-view-v39');workspace.append(top,desktopHead,view);shell.append(side,workspace);root.append(shell);setActiveAdminView(activeAdminView);
 }
 async function extraView(name){setActiveAdminView(name);const current=++epoch;selected=null;view.replaceChildren(el('p','載入中…','muted'));const module=await import('./operations.js');if(epoch===current)await module[name](view,()=>epoch===current);}
@@ -265,7 +265,7 @@ async function imports(){
 async function logout(){await api('logout');login();status('已登出此瀏覽器。');}
 async function start(){
  root.replaceChildren(el('p','正在開啟管理端…','muted'));
- try{shell();if(!await openQrMemberIfRequested())await homeView();}
+ try{shell();if(!await openQrMemberIfRequested())await membersListView();}
  catch(e){if(e.status===401||e.status===403){login();if(e.status===403)status(e.message,true);}else{root.replaceChildren(button('重試連線',start,'secondary'));status(e.message,true);}}
 }
 window.addEventListener('admin-session-ended',()=>{login();status('登入已失效，請重新登入。',true);});

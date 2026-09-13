@@ -1,5 +1,5 @@
-import {root,status} from './core.js?v=535c9057dc25';
-import {customerView} from './customer-ui.js?v=535c9057dc25';
+import {root,status} from './core.js?v=d0b5d1b3e54d';
+import {customerView} from './customer-ui.js?v=d0b5d1b3e54d';
 // Explicit public demonstration. Never calls the member API or the LINE SDK.
 const demoData={member:{id:'00000000-0000-4000-8000-000000000001',display_name:'小葵'},points:360,total:4600,visits:8,point_days:[{day:'2026-09-10',earned:100},{day:'2026-09-08',earned:60},{day:'2026-09-05',earned:200}],next_day:null};
 document.querySelector('#brand').textContent='3C手機配件';

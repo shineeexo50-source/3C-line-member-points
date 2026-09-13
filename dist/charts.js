@@ -1,4 +1,4 @@
-import {el,table,money} from './core.js?v=535c9057dc25';
+import {el,table,money} from './core.js?v=d0b5d1b3e54d';
 const ns='http://www.w3.org/2000/svg';
 function svgEl(tag,attrs={},text){const e=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));if(text!==undefined)e.textContent=text;return e;}
 export function lineChart(days,key,label){
