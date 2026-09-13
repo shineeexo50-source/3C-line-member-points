@@ -16,11 +16,11 @@
 // Modified to work in node for this project (and some refactoring)
 //---------------------------------------------------------------------
 
-import QR8bitByte from './qr-lib-QR8bitByte.js?v=0d2bb0c58b86';
-import QRUtil from './qr-lib-QRUtil.js?v=0d2bb0c58b86';
-import QRPolynomial from './qr-lib-QRPolynomial.js?v=0d2bb0c58b86';
-import QRRSBlock from './qr-lib-QRRSBlock.js?v=0d2bb0c58b86';
-import QRBitBuffer from './qr-lib-QRBitBuffer.js?v=0d2bb0c58b86';
+import QR8bitByte from './qr-lib-QR8bitByte.js?v=535c9057dc25';
+import QRUtil from './qr-lib-QRUtil.js?v=535c9057dc25';
+import QRPolynomial from './qr-lib-QRPolynomial.js?v=535c9057dc25';
+import QRRSBlock from './qr-lib-QRRSBlock.js?v=535c9057dc25';
+import QRBitBuffer from './qr-lib-QRBitBuffer.js?v=535c9057dc25';
 
 function QRCode(typeNumber, errorCorrectLevel) {
 	this.typeNumber = typeNumber;

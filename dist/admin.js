@@ -1,5 +1,5 @@
-import {$,root,el,button,panel,summary,status,api,setToken,loadConfig,field,submit,table,money,dateText,itemText,download,taipeiMonth,taipeiNow,initTheme,themeButton} from './core.js?v=0d2bb0c58b86';
-import {csvText,parseImport,importHeaders} from './csv.js?v=0d2bb0c58b86';
+import {$,root,el,button,panel,summary,status,api,setToken,loadConfig,field,submit,table,money,dateText,itemText,download,taipeiMonth,taipeiNow,initTheme,themeButton} from './core.js?v=535c9057dc25';
+import {csvText,parseImport,importHeaders} from './csv.js?v=535c9057dc25';
 let view,epoch=0,month=taipeiMonth(),selected=null,memberQuery='',memberOffset=0,compareOffset=0,compareSort='paid';
 let inputSequence=0,comparisonMode='same',activeAdminView='overview',memberHotkeyCleanup=()=>{},memberLiveCleanup=()=>{};
 initTheme();
@@ -58,11 +58,11 @@ function shell(){
  const navButton=(icon,text,name,fn)=>{const b=button('',async()=>{shell.classList.remove('sidebar-open');setActiveAdminView(name);await fn();},'sidebar-link');b.dataset.view=name;b.dataset.adminNav='1';b.append(el('span',icon,'nav-icon'),el('span',text));nav.append(b);return b;};
  navButton('⌂','首頁','home',homeView);navButton('●','會員管理','members',members);navButton('＋','新增會員','newmember',newMemberView);navButton('●','會員列表','memberlist',membersListView);navButton('✓','新增消費','checkout',checkoutHub);navButton('🎁','客訂商品','orders',ordersView);navButton('▤','消費紀錄','transactions',transactionsView);navButton('▥','統計報表','reports',reportsView);navButton('♟','店員管理','staff',staffView);navButton('⚙','系統設定','settings',settingsView);
  side.append(nav);const foot=el('div',undefined,'sidebar-foot');foot.append(el('small','簡單管理 · 快速服務'),button('登出',logout,'sidebar-logout'));side.append(foot);
- const top=el('div',undefined,'admin-mobile-bar'),menu=button('☰',()=>shell.classList.toggle('sidebar-open'),'mobile-menu-button');top.append(menu,el('strong','管理端'),el('span','v3.9.2','mobile-version'));
- const desktopHead=el('header',undefined,'admin-desktop-header'),brand=el('div',undefined,'admin-head-brand'),user=el('div',undefined,'admin-head-user');brand.append(el('span','🏪','admin-head-mark'),el('strong','v3.9.2 管理端'),el('span','用心經營，讓每一位顧客都變成老朋友 ♡','admin-head-tagline'));user.append(el('span','●','admin-head-bell'),el('div','管理者','admin-head-user-copy'));desktopHead.append(brand,user);
+ const top=el('div',undefined,'admin-mobile-bar'),menu=button('☰',()=>shell.classList.toggle('sidebar-open'),'mobile-menu-button');top.append(menu,el('strong','管理端'),el('span','v3.9.5','mobile-version'));
+ const desktopHead=el('header',undefined,'admin-desktop-header'),brand=el('div',undefined,'admin-head-brand'),user=el('div',undefined,'admin-head-user');brand.append(el('span','🏪','admin-head-mark'),el('strong','v3.9.5 管理端'),el('span','用心經營，讓每一位顧客都變成老朋友 ♡','admin-head-tagline'));user.append(el('span','●','admin-head-bell'),el('div','管理者','admin-head-user-copy'));desktopHead.append(brand,user);
  view=el('div',undefined,'admin-view-v39');workspace.append(top,desktopHead,view);shell.append(side,workspace);root.append(shell);setActiveAdminView(activeAdminView);
 }
-async function extraView(name){setActiveAdminView(name);const current=++epoch;selected=null;view.replaceChildren(el('p','載入中…','muted'));const module=await import('./operations.js?v=0d2bb0c58b86');if(epoch===current)await module[name](view,()=>epoch===current);}
+async function extraView(name){setActiveAdminView(name);const current=++epoch;selected=null;view.replaceChildren(el('p','載入中…','muted'));const module=await import('./operations.js?v=535c9057dc25');if(epoch===current)await module[name](view,()=>epoch===current);}
 function monthControl(onChange){const row=el('div',undefined,'row'),label=el('label','分析月份'),input=el('input');input.type='month';input.value=month;input.setAttribute('aria-label','分析月份');input.className='month-input';const mode=el('select');mode.setAttribute('aria-label','比較期間');for(const [value,text] of [['same','本月截至今日／上月同期'],['full','完整月份比較']]){const o=el('option',text);o.value=value;mode.append(o);}mode.value=comparisonMode;row.append(label,input,mode,button('更新報表',async()=>{if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(input.value))throw Error('請選擇月份');month=input.value;comparisonMode=mode.value;compareOffset=0;await onChange();},'secondary'));return row;}
 async function homeView(){
  setActiveAdminView('home');const here=++epoch;selected=null;view.replaceChildren(el('p','STORE DASHBOARD · 管理首頁','eyebrow'),el('h1','今天要先處理什麼？'),el('p','常用工作集中在首頁；會員、消費、客訂與報表各自回到對應選單，不混在一起。','muted'));
@@ -73,7 +73,7 @@ async function homeView(){
 }
 async function overview(){
  setActiveAdminView('reports');const thisEpoch=++epoch;selected=null;view.replaceChildren(el('h1','這個月，客人帶來多少回訪？'),monthControl(overview),el('p','載入月度分析…','muted'));status('正在計算主要報表…');
- const [report,charts]=await Promise.all([api('report',{month,mode:comparisonMode}),import('./charts.js?v=0d2bb0c58b86')]);if(thisEpoch!==epoch)return;
+ const [report,charts]=await Promise.all([api('report',{month,mode:comparisonMode}),import('./charts.js?v=535c9057dc25')]);if(thisEpoch!==epoch)return;
  const head=el('div',undefined,'row between');head.append(monthControl(overview),button('匯出本月交易 CSV',()=>exportMonth(month),'secondary'));
  view.replaceChildren(el('p','MONTHLY OVERVIEW · 月度分析','eyebrow'),el('h1',month+' 營運總覽'),head,el('p',`台灣時間：${dateText(report.start_at).split(' ')[0]} ～ ${dateText(new Date(new Date(report.end_at)-1)).split(' ')[0]}；比較 ${dateText(report.previous_at).split(' ')[0]} ～ ${dateText(new Date(new Date(report.previous_end)-1)).split(' ')[0]}。今日資料持續增加；歷史月份按整月比較。`,'muted'));
  const metrics=el('div',undefined,'metric-grid');

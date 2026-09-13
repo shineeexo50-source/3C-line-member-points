@@ -95,7 +95,7 @@ async function restoreSession(req,res){
  if(jar[ACCESS_COOKIE]){
   try{actor=await verifiedUser(jar[ACCESS_COOKIE]);}catch(e){if(e.status!==401)throw e;}
  }
- if(actor){await rpc('require_admin_v2',{p_actor:actor});return actor;}
+ if(actor){try{await requireAdminDirect(actor);return actor;}catch(e){if(e.status===403)sessionCookies(res,'','');throw e;}}
  if(!jar[REFRESH_COOKIE]){sessionCookies(res,'','');fail('請先登入管理端',401);}
  const r=await fetch((process.env.SUPABASE_URL||'').trim().replace(/\/$/,'')+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:(process.env.SUPABASE_PUBLISHABLE_KEY||'').trim(),'Content-Type':'application/json'},body:JSON.stringify({refresh_token:jar[REFRESH_COOKIE]}),signal:timeout()});
  const d=await r.json();
@@ -103,7 +103,7 @@ async function restoreSession(req,res){
   if(r.status>=500||r.status===429)fail('登入服務暫時忙碌，請稍後重試',503);
   sessionCookies(res,'','');fail('登入已失效，請重新登入',401);
  }
- actor=await verifiedUser(d.access_token);await rpc('require_admin_v2',{p_actor:actor});sessionCookies(res,d.access_token,d.refresh_token);return actor;
+ actor=await verifiedUser(d.access_token);try{await requireAdminDirect(actor);}catch(e){if(e.status===403)sessionCookies(res,'','');throw e;}sessionCookies(res,d.access_token,d.refresh_token);return actor;
 }
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,MONTH_RE=/^\d{4}-(0[1-9]|1[0-2])$/;
 function cleanMemberId(v){const s=String(v||'').trim();if(!UUID_RE.test(s))fail('會員編號格式不正確');return s.toLowerCase();}
@@ -126,7 +126,7 @@ export default async function handler(req,res){
    if(typeof b.email!=='string'||typeof b.password!=='string'||b.email.length>254||b.password.length>1000)fail('請輸入正確帳號密碼');
    const r=await fetch((process.env.SUPABASE_URL||'').trim().replace(/\/$/,'')+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:(process.env.SUPABASE_PUBLISHABLE_KEY||'').trim(),'Content-Type':'application/json'},body:JSON.stringify({email:b.email,password:b.password}),signal:timeout()});
    const d=await r.json();if(!r.ok)fail('帳號或密碼錯誤，或嘗試次數過多',401);
-   const actor=await verifiedUser(d.access_token);await rpc('require_admin_v2',{p_actor:actor});
+   const actor=await verifiedUser(d.access_token);await requireAdminDirect(actor);
    if(!d.refresh_token)fail('登入服務未回傳完整憑證',502);
    sessionCookies(res,d.access_token,d.refresh_token);return send({authenticated:true});
   }

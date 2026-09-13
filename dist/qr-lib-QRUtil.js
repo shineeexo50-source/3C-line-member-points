@@ -1,7 +1,7 @@
-import QRMode from './qr-lib-QRMode.js?v=0d2bb0c58b86';
-import QRPolynomial from './qr-lib-QRPolynomial.js?v=0d2bb0c58b86';
-import QRMath from './qr-lib-QRMath.js?v=0d2bb0c58b86';
-import QRMaskPattern from './qr-lib-QRMaskPattern.js?v=0d2bb0c58b86';
+import QRMode from './qr-lib-QRMode.js?v=535c9057dc25';
+import QRPolynomial from './qr-lib-QRPolynomial.js?v=535c9057dc25';
+import QRMath from './qr-lib-QRMath.js?v=535c9057dc25';
+import QRMaskPattern from './qr-lib-QRMaskPattern.js?v=535c9057dc25';
 
 var QRUtil = {
 
