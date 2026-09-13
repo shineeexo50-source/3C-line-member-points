@@ -1,4 +1,4 @@
-import QRMath from './qr-lib-QRMath.js?v=2fed6cd6b342';
+import QRMath from './qr-lib-QRMath.js';
 
 function QRPolynomial(num, shift) {
 	if (num.length === undefined) {

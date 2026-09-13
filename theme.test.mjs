@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+const saved=new Map([['member-ui-theme.v1','dark']]);
+const meta={content:''};let systemChange;
+global.document={documentElement:{dataset:{}},querySelector:s=>s==='meta[name=theme-color]'?meta:null};
+global.localStorage={getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v)};
+global.matchMedia=()=>({matches:true,addEventListener:(event,fn)=>systemChange=fn});
+const {initTheme,applyTheme}=await import('../public/core.js');
+test('first upgraded visit starts light even with dark OS and old dark preference',()=>{assert.equal(initTheme(),'light');assert.equal(document.documentElement.dataset.theme,'light');assert.equal(meta.content,'#eef4f8');systemChange();assert.equal(document.documentElement.dataset.theme,'light');});
+test('explicit new theme choice is retained on the next initialization',()=>{applyTheme('dark');assert.equal(initTheme(),'dark');assert.equal(meta.content,'#101319');applyTheme('light');assert.equal(initTheme(),'light');});
+test('unavailable storage and invalid choice fall back to light',()=>{assert.equal(applyTheme('invalid'),'light');global.localStorage={getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}};assert.equal(initTheme(),'light');});

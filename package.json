@@ -1,7 +1,7 @@
 {
   "name": "line-member-points",
   "private": true,
-  "version": "3.7.2",
+  "version": "3.7.3-rebate10-light",
   "type": "module",
   "engines": {
     "node": "22.x"

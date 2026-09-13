@@ -1,4 +1,4 @@
-import QRErrorCorrectLevel from './qr-lib-QRErrorCorrectLevel.js?v=2fed6cd6b342';
+import QRErrorCorrectLevel from './qr-lib-QRErrorCorrectLevel.js';
 
 function QRRSBlock(totalCount, dataCount) {
 	this.totalCount = totalCount;

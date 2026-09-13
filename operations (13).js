@@ -1,5 +1,5 @@
-import {el,button,panel,api,status,table,dateText,download,money} from './core.js?v=2fed6cd6b342';
-import {csvText} from './csv.js?v=2fed6cd6b342';
+import {el,button,panel,api,status,table,dateText,download,money} from './core.js';
+import {csvText} from './csv.js';
 export async function operations(view,isCurrent){
  view.replaceChildren(el('p','OPERATIONS · 營運核對','eyebrow'),el('h1','點數與操作紀錄'));
  const controls=el('div',undefined,'row'),body=el('div');view.append(controls,body);
@@ -18,9 +18,9 @@ export async function operations(view,isCurrent){
 }
 export async function backups(view,isCurrent){
  view.replaceChildren(el('p','BACKUP & RESTORE · 資料保護','eyebrow'),el('h1','備份與還原'));
- const save=panel('下載業務資料備份');save.append(el('p','包含會員、交易、管理員授權清單與操作紀錄，附點數合計及檔案校驗碼。備份含個人資料，請保存在私人位置。'),el('p','這是業務資料備份；帳號密碼、LINE 設定、Vercel 環境變數及 Supabase Storage 不包含在內。大型資料請依手冊使用資料庫備份。','muted'),button('下載備份 JSON',async()=>{status('正在建立一致的資料快照…');const [{wrapBackup},p]=await Promise.all([import('./backup.js?v=2fed6cd6b342'),api('backup')]);const doc=await wrapBackup(p);download('會員業務備份_'+p.created_at.slice(0,10)+'.json',JSON.stringify(doc),'application/json');status('備份已交給瀏覽器下載，請確認檔案已保存。');}));view.append(save);
+ const save=panel('下載業務資料備份');save.append(el('p','包含會員、交易、管理員授權清單與操作紀錄，附點數合計及檔案校驗碼。備份含個人資料，請保存在私人位置。'),el('p','這是業務資料備份；帳號密碼、LINE 設定、Vercel 環境變數及 Supabase Storage 不包含在內。大型資料請依手冊使用資料庫備份。','muted'),button('下載備份 JSON',async()=>{status('正在建立一致的資料快照…');const [{wrapBackup},p]=await Promise.all([import('./backup.js'),api('backup')]);const doc=await wrapBackup(p);download('會員業務備份_'+p.created_at.slice(0,10)+'.json',JSON.stringify(doc),'application/json');status('備份已交給瀏覽器下載，請確認檔案已保存。');}));view.append(save);
  const restore=panel('驗證備份與產生還原 SQL'),file=el('input');file.type='file';file.accept='.json,application/json';file.setAttribute('aria-label','業務備份 JSON');const result=el('div');let sequence=0;
  restore.append(el('p','僅對空的業務資料表還原；不會覆蓋既有資料。需先具備原管理員 Auth 帳號 UUID。先執行演練 SQL，通過後再使用正式還原 SQL。'),file,result);view.append(restore);
- file.onchange=async()=>{const seq=++sequence;result.replaceChildren();try{const f=file.files[0];if(!f)return;if(f.size>4000000)throw Error('檔案過大，請使用資料庫還原流程');const {readBackup,validatePayload,restoreSQL}=await import('./backup.js?v=2fed6cd6b342');const p=await readBackup(await f.text());if(!isCurrent()||seq!==sequence)return;const d=validatePayload(p);
+ file.onchange=async()=>{const seq=++sequence;result.replaceChildren();try{const f=file.files[0];if(!f)return;if(f.size>4000000)throw Error('檔案過大，請使用資料庫還原流程');const {readBackup,validatePayload,restoreSQL}=await import('./backup.js');const p=await readBackup(await f.text());if(!isCurrent()||seq!==sequence)return;const d=validatePayload(p);
  result.append(el('h2','檔案校驗通過'),el('p',`備份日期 ${dateText(p.created_at)}；會員 ${d.members} 位、交易 ${d.transactions} 筆、操作 ${d.audit} 筆、可用點數合計 ${d.points}。`),button('下載還原演練 SQL（結尾回滾）',()=>download('還原演練.sql',restoreSQL(p,true),'text/plain;charset=utf-8'),'secondary'),button('下載正式還原 SQL',()=>download('正式還原.sql',restoreSQL(p,false),'text/plain;charset=utf-8'),'secondary'),el('p','下載 SQL 不會更動資料庫。請在 Supabase SQL Editor 的新查詢執行；不要刪除正式資料來通過空表檢查。校驗碼驗證完整性，不代表檔案來源可信。','muted'));status('備份格式、校驗碼與點數合計已核對。');}catch(e){status(e.message,true);}};
 }
