@@ -1,4 +1,4 @@
--- v3.9.0 管理端 UI / 商品庫存 / 全店客訂 / 店員管理
+-- v3.9.2 管理端 UI / 全店客訂 / 店員管理（不含商品與庫存管理）
 -- 請先完成 08_upgrade_v3_8_custom_orders.sql，再執行本檔。
 begin;
 
@@ -93,7 +93,7 @@ create or replace function public.admin_health_v39(p_actor uuid) returns jsonb
 language plpgsql security definer set search_path=public as $$
 begin
  perform require_admin_v2(p_actor);
- return jsonb_build_object('schema_version','3.9.1','checked_at',now(),'custom_orders_open',(select count(*) from custom_orders where not paid_in_full));
+ return jsonb_build_object('schema_version','3.9.2','checked_at',now(),'custom_orders_open',(select count(*) from custom_orders where not paid_in_full));
 end $$;
 
 create or replace function public.admin_backup_v39(p_actor uuid) returns jsonb

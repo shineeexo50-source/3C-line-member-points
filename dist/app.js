@@ -1,5 +1,5 @@
-import {root,el,button,panel,status,api,setToken,loadConfig,initTheme,themeButton} from './core.js?v=41d255113605';
-import {customerView} from './customer-ui.js?v=41d255113605';
+import {root,el,button,panel,status,api,setToken,loadConfig,initTheme,themeButton} from './core.js?v=0d2bb0c58b86';
+import {customerView} from './customer-ui.js?v=0d2bb0c58b86';
 let pending=null,generation=0,lastUpdated=0,hasCard=false;
 initTheme();
 const header=document.querySelector('header');if(header)header.append(themeButton());
