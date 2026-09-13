@@ -8,12 +8,12 @@ export function themeButton(){const b=button('',()=>{const now=document.document
 export const money=n=>'NT$ '+Number(n||0).toLocaleString('zh-TW',{maximumFractionDigits:2});
 export const dateText=d=>new Date(d).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false});
 export function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
-export function status(message,error=false){const box=$('#status');box.textContent=message;box.className=error?'error':'';}
+export function status(message,error=false){const box=$('#status');if(!box)return;box.textContent=typeof message==='string'&&message.trim()&&!['null','undefined'].includes(message)?message:'目前無法完成操作，請重新載入後再試。';box.className=error?'error':'';}
 let refreshInFlight=null,signingOut=false;
-const READ_ACTIONS=new Set(['session','me','health','audit','ledger','reconcile','backup','search','detail','report','compare','export']);
+const READ_ACTIONS=new Set(['line_status','session','me','health','audit','ledger','reconcile','backup','search','detail','report','compare','export']);
 function retrySafe(action,data){if(READ_ACTIONS.has(action))return true;const op=String(data?.data?.op||'');return (action==='custom_orders'&&['list','global','staff_list'].includes(op))||(action==='catalog'&&op==='list');}
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
-async function requestOnce(action,data){const r=await fetch('/api/app',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Member-App':'1',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify({action,...data}),signal:AbortSignal.timeout(45000)});let d;try{d=await r.json();}catch{const e=Error('伺服器回應異常，請確認部署完成');e.status=r.status||502;throw e;}if(!r.ok){const e=Error(d.error||'連線失敗');e.status=r.status;throw e;}return d;}
+async function requestOnce(action,data){const r=await fetch('/api/app',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Member-App':'1',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify({action,...data}),signal:AbortSignal.timeout(45000)});let d;try{d=await r.json();}catch{const e=Error('伺服器回應異常，請確認部署完成');e.status=r.status||502;throw e;}if(!d||typeof d!=='object'){const e=Error('伺服器回應不完整，請稍後重試。');e.status=r.ok?502:r.status;throw e;}if(!r.ok){const e=Error(typeof d.error==='string'?d.error:'目前無法完成操作，請稍後重試。');e.status=r.status;e.code=d.code;throw e;}return d;}
 async function request(action,data){const tries=retrySafe(action,data)?2:1;let last;for(let i=0;i<tries;i++){try{return await requestOnce(action,data);}catch(e){last=e;const retryable=!e.status||[429,502,503,504].includes(e.status);if(i+1>=tries||!retryable)throw e;await wait(260+Math.random()*240);}}throw last;}
 export async function api(action,data={}){
  if(action==='login')signingOut=false;
@@ -37,6 +37,6 @@ export function summary(d,cute=false){const box=el('section',undefined,cute?'car
 export function itemText(items){return items?.length?items.map(i=>`${i.name} × ${i.qty}（單價 ${money(i.price)}）`).join('；'):'舊交易未填購買項目';}
 export function download(name,text,type='text/csv;charset=utf-8'){const url=URL.createObjectURL(new Blob([text],{type})),a=el('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
 let configPromise;export function loadConfig(){if(!configPromise)configPromise=fetchConfig().catch(e=>{configPromise=null;throw e;});return configPromise;}
-async function fetchConfig(){const r=await fetch('/config.json',{cache:'no-cache'});if(!r.ok)throw Error('網站設定尚未建立，請重新部署');const c=await r.json();$('#brand').textContent=c.store;$('#contact').textContent=[c.business,c.contact].filter(Boolean).join(' · ');return c;}
+async function fetchConfig(){const r=await fetch('/config.json',{cache:'no-cache',signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('網站設定尚未建立，請重新部署');const c=await r.json();if(!c||typeof c!=='object')throw Error('網站設定回應不完整，請重新部署');const brand=$('#brand'),contact=$('#contact');if(brand)brand.textContent=c.store||'會員管理系統 ProMax';if(contact)contact.textContent=[c.business,c.contact].filter(Boolean).join(' · ');return c;}
 export function taipeiMonth(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit'}).format(new Date());}
 export function taipeiNow(){return new Date(Date.now()+8*3600000).toISOString().slice(0,16);}

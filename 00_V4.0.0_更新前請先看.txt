@@ -1,0 +1,7 @@
+會員管理系統 ProMax V4.0.0
+
+既有v3.9.2：先備份資料庫並暫停入帳，執行 sql/10_upgrade_v4_0_0.sql，再上傳此資料夾內的全部內容至GitHub根目錄並等Vercel部署完成。不要刪資料庫，也不要重跑01_setup.sql。
+
+LINE一鍵通知仍需在Vercel設定 LINE_CHANNEL_ACCESS_TOKEN，設定後重新部署。系統不會自行產生或取得您的官方帳號憑證。
+
+付款填寫方式、升級順序、LINE設定與驗證限制請見README.md。

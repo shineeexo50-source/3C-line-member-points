@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+import {wrapBackup,readBackup,restoreSQL} from '../public/backup.js';
+const {PGlite}=await import(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+const actor='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',mid='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
+const migration=readFileSync('sql/10_upgrade_v4_0_0.sql','utf8');
+async function setup(){const db=new PGlite();await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);');for(const n of ['01_setup','04_upgrade_v2','06_upgrade_v3','08_upgrade_v3_8_custom_orders','09_upgrade_v3_9_2_rebuild'])await db.exec(readFileSync('sql/'+n+'.sql','utf8'));await db.query('insert into auth.users values ($1,$2)',[actor,'qa@example.com']);return db;}
+const db=await setup();await db.query('insert into admins values ($1)',[actor]);await db.query("insert into members(id,line_id,display_name) values ($1,'U11111111111111111111111111111111','王小姐'),($2,'U22222222222222222222222222222222','陳先生')",[mid,other]);
+await db.query("insert into custom_orders(member_id,product_name,paid_in_full,created_by,note) values($1,'舊付清訂單',true,$2,'保留舊備註')",[mid,actor]);
+await db.exec(migration);await db.exec(migration);
+assert.equal((await db.query("select full_amount from custom_orders where product_name='舊付清訂單'")).rows[0].full_amount,null);
+const rpc=async(action,data,user=actor)=>(await db.query('select admin_custom_orders_v400($1,$2,$3) d',[user,action,data])).rows[0].d;
+const notify=async(action,data)=>(await db.query('select admin_order_notify_v400($1,$2,$3) d',[actor,action,data])).rows[0].d;
+const base={id:crypto.randomUUID(),member_id:mid,version:0,ordered_at:'2026-01-02T03:04:00Z',product_name:'保護殼',deposit_paid:true,deposit_amount:200,paid_in_full:false,full_amount:0,staff_name:'小美',note:'測試'};
+const saved=await rpc('create',base);assert.equal(saved.version,1);assert.equal(saved.deposit_amount,200);assert.deepEqual(await rpc('create',base),saved);
+const paid=await rpc('update',{...saved,paid_in_full:true,full_amount:1000});assert.equal(paid.full_amount,1000);assert.equal(paid.version,2);
+for(const patch of [{full_amount:1.5},{full_amount:-1},{full_amount:0},{deposit_paid:false},{paid_in_full:false},{full_amount:100},{product_name:''}])await assert.rejects(()=>rpc('update',{...paid,...patch}));
+await assert.rejects(()=>rpc('update',{...saved,note:'stale'}),/其他店員/);
+await assert.rejects(()=>rpc('update',{...paid,member_id:other}),/不屬於/);
+await assert.rejects(()=>rpc('list',{member_id:mid},other),/管理權限/);
+await assert.rejects(()=>rpc('notify_mark',{...paid}),/不支援/);
+const job=await notify('prepare',{id:paid.id,member_id:mid,version:paid.version,store:'測試門市'});assert.equal(job.line_id,'U11111111111111111111111111111111');assert.match(job.message,/王小姐/);
+assert.deepEqual(await notify('prepare',{id:paid.id,member_id:mid,version:paid.version,store:'任意變更'}),job);
+await assert.rejects(()=>rpc('delete',paid),/待確認/);
+await notify('accept',{id:paid.id,member_id:mid,request_id:job.id});await notify('accept',{id:paid.id,member_id:mid,request_id:job.id});
+assert.equal((await db.query("select count(*)::int n from audit where action='custom_order_notify'")).rows[0].n,1);
+assert.equal((await notify('prepare',{id:paid.id,member_id:mid,version:paid.version})).status,'accepted');
+await rpc('delete',paid);assert.equal((await rpc('list',{member_id:mid})).orders.some(o=>o.id===paid.id),false);assert.equal((await db.query('select count(*)::int n from custom_orders where id=$1',[paid.id])).rows[0].n,1);
+await rpc('delete',paid); // safe retry
+assert.equal((await db.query("select count(*)::int n from audit where action='custom_order_delete'")).rows[0].n,1);
+// Search is applied before pagination; punctuation is literal.
+for(let i=0;i<52;i++)await db.query('insert into custom_orders(member_id,product_name,created_by,full_amount) values($1,$2,$3,0)',[mid,'商品'+i,actor]);
+await db.query('insert into custom_orders(member_id,product_name,created_by,full_amount) values($1,$2,$3,0)',[mid,'特殊(),商品',actor]);
+assert.equal((await rpc('global',{query:'特殊(),',limit:50})).orders.length,1);assert.equal((await rpc('list',{member_id:mid,limit:50})).has_more,true);
+assert.equal((await db.query("select has_function_privilege('authenticated','admin_custom_orders_v400(uuid,text,jsonb)','EXECUTE') p")).rows[0].p,false);
+assert.equal((await db.query("select has_function_privilege('service_role','admin_custom_orders_v38(uuid,text,jsonb)','EXECUTE') p")).rows[0].p,false);
+await db.query('insert into transactions(id,member_id,gross,redeemed,occurred_at,created_by) values($1,$2,1000,0,now(),$3)',[crypto.randomUUID(),mid,actor]);
+const detail=(await db.query('select admin_detail_v400($1,$2,0,true) d',[actor,mid])).rows[0].d;assert.equal(detail.points,100);assert.equal(detail.total,1000);assert.equal(detail.member.line_id,undefined);
+const backup=(await db.query('select admin_backup_v400($1) d',[actor])).rows[0].d;assert.equal(backup.version,6);assert.equal(backup.order_notifications.length,1);await readBackup(JSON.stringify(await wrapBackup(backup)));
+const recovery=await setup();await recovery.exec(migration);await recovery.exec(restoreSQL(backup,true));assert.equal((await recovery.query('select count(*)::int n from custom_orders')).rows[0].n,0);await recovery.exec(restoreSQL(backup,false));
+for(const table of ['custom_orders','order_notifications'])assert.deepEqual((await recovery.query('select * from '+table+' order by id')).rows,(await db.query('select * from '+table+' order by id')).rows);
+await assert.rejects(()=>recovery.exec(restoreSQL(backup,false)),/不是空/);await recovery.exec('rollback');
+await db.close();await recovery.close();console.log('PASS V4: legacy migration, deposits/full amounts, retries, CAS, member isolation, notification identity/idempotency, soft-delete audit, pagination/search, permissions, points, backup/restore');
