@@ -40,6 +40,6 @@ export function customerView(d,{refresh,loadMore,updatedAt=new Date(),demo=false
  if(!d.point_days?.length)list.append(el('p','你的第一份回饋，等下次購物來收藏 ♡','empty'));
  diary.append(list);if(d.next_day&&loadMore){let cursor=d.next_day;const more=button('看看更早的獲點',async()=>{const next=await loadMore(cursor);if(!next)return;appendDays(next.point_days);cursor=next.next_day;if(!cursor)more.remove();},'diary-more');diary.append(more);}
  diary.append(el('p','同日回饋合併顯示；已作廢回饋不計入。使用點數後，可用餘額會減少。','diary-note'));page.append(diary);
- const help=el('details',undefined,'reward-help');help.append(el('summary','點數怎麼累積、怎麼用？'));help.append(el('p','每筆實付每滿 NT$100 贈 10 點（10%），1 點可折 NT$1。未滿百元的部分不跨筆累積；折抵後的實付金額才計算回饋。'),el('p','例如：商品 NT$500，使用 100 點，實付 NT$400，再獲得 40 點。結帳時按「出示會員卡」，請店員協助折抵。'),el('p','需要核對購買內容？請透過官方 LINE 聯絡店家。'));page.append(help);
+ const help=el('details',undefined,'reward-help');help.append(el('summary','點數怎麼累積、怎麼用？'));help.append(el('p','每筆實付每滿 NT$100 贈 10 點，1 點可折 NT$1。未滿百元的部分不跨筆累積；折抵後的實付金額才計算回饋。'),el('p','例如：商品 NT$500，使用 100 點，實付 NT$400，再獲得 40 點。結帳時按「出示會員卡」，請店員協助折抵。'),el('p','需要核對購買內容？請透過官方 LINE 聯絡店家。'));page.append(help);
  return page;
 }

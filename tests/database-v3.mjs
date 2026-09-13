@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {wrapBackup,readBackup,restoreSQL} from '../public/backup.js';
 const {PGlite}=await import(process.env.PGLITE_MODULE||'@electric-sql/pglite');
 const db=new PGlite();const actor='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',mid='11111111-1111-4111-8111-111111111111';
-async function setup(d,auth=true){await d.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);');for(const name of ['01_setup.sql','04_upgrade_v2.sql','06_upgrade_v3.sql','08_upgrade_reward_10pct.sql'])await d.exec(readFileSync('sql/'+name,'utf8'));if(auth)await d.query('insert into auth.users values ($1,$2)',[actor,'admin@example.com']);}
+async function setup(d,auth=true){await d.exec('create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);');for(const name of ['01_setup.sql','04_upgrade_v2.sql','06_upgrade_v3.sql'])await d.exec(readFileSync('sql/'+name,'utf8'));if(auth)await d.query('insert into auth.users values ($1,$2)',[actor,'admin@example.com']);}
 const rpc=async(name,args)=>(await db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) d`,args)).rows[0].d;
 let n=0;async function check(name,fn){await fn();console.log('PASS '+name);n++;}
 await setup(db);await db.query('insert into admins values ($1)',[actor]);await db.query("insert into members(id,line_id,display_name) values ($1,'LINE-ONE','測試會員')",[mid]);

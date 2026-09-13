@@ -16,7 +16,7 @@ async function rpc(name,body){
   if(r.status===401)fail('會員服務驗證失敗（DB-KEY），請聯絡店家。',503,'DB-KEY');
   if(d?.code==='42501'){if(d.message==='沒有管理權限')fail('此帳號沒有管理權限',403);fail('會員服務存取權限不足（DB-PERM），請聯絡店家。',503,'DB-PERM');}
   if(r.status===403)fail('會員服務存取權限不足（DB-PERM），請聯絡店家。',503,'DB-PERM');
-  if(d?.code==='PGRST202'||d?.code==='42883')fail('請先依序執行 sql/04_upgrade_v2.sql 與 sql/06_upgrade_v3.sql，再重新整理',503);
+  if(d?.code==='PGRST202'||d?.code==='42883')fail('資料庫功能尚未升級完成；請依序確認已執行 sql/04_upgrade_v2.sql、sql/06_upgrade_v3.sql、sql/08_upgrade_v3_8_custom_orders.sql、sql/09_upgrade_v3_9_admin_ui.sql 後重新整理',503);
   if(d?.code==='P0001')fail(d.message);
   if(['22P02','22007','22008','22003','23502','23514'].includes(d?.code))fail('資料格式不正確，請檢查金額、日期與會員編號');
   if(d?.code==='23505')fail('訂單編號已使用，請重新查詢確認交易');
@@ -95,9 +95,21 @@ export default async function handler(req,res){
   }
   const actor=await verifiedUser(jar[ACCESS_COOKIE]||token);
   const args={p_actor:actor};
-  if(['health','audit','ledger','reconcile','backup'].includes(b.action))return send(await rpc('admin_operations_v3',{...args,p_action:b.action,p_data:b.data||{}}));
+  if(b.action==='backup')return send(await rpc('admin_backup_v39',args));
+  if(b.action==='health')return send(await rpc('admin_health_v39',args));
+  if(['audit','ledger','reconcile'].includes(b.action))return send(await rpc('admin_operations_v3',{...args,p_action:b.action,p_data:b.data||{}}));
   if(b.action==='search'){const q=String(b.query||'').trim();if(q.length>200)fail('搜尋內容過長');return send(await rpc('admin_members_v2',{...args,p_query:q,p_offset:Math.max(0,parseInt(b.offset)||0)}));}
   if(b.action==='detail')return send(await rpc('admin_detail_v2',{...args,p_member:cleanMemberId(b.member_id),p_cursor:b.cursor||null,p_summary:!b.cursor}));
+  if(b.action==='custom_orders')return send(await rpc('admin_custom_orders_v39',{...args,p_action:String(b.data?.op||''),p_data:b.data||{}}));
+  if(b.action==='notify_order'){
+   const data=b.data||{},target=await rpc('admin_custom_orders_v39',{...args,p_action:'notify_target',p_data:data});
+   const access=(process.env.LINE_CHANNEL_ACCESS_TOKEN||'').trim();if(!access)fail('尚未設定 LINE Messaging API。請在環境變數加入 LINE_CHANNEL_ACCESS_TOKEN。',503,'LINE-MSG-CFG');
+   const item=String(target?.order?.product_name||'客訂商品'),name=String(target?.display_name||'會員'),store=process.env.STORE_NAME||'門市';
+   const text=`${name}您好，您在 ${store} 客訂的「${item}」已有最新進度，歡迎與我們聯繫或到店確認，謝謝您。`;
+   let r;try{r=await fetch('https://api.line.me/v2/bot/message/push',{method:'POST',headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},body:JSON.stringify({to:target.line_id,messages:[{type:'text',text:text.slice(0,5000)}]}),signal:timeout()});}catch{fail('LINE 通知連線逾時，尚未標記為已通知',503,'LINE-MSG-NET');}
+   if(!r.ok){const err=await r.json().catch(()=>null);fail(err?.message?`LINE 通知失敗：${err.message}`:'LINE 通知失敗，尚未標記為已通知',502,'LINE-MSG');}
+   const marked=await rpc('admin_custom_orders_v39',{...args,p_action:'notify_mark',p_data:data});return send({sent:true,order:marked});
+  }
   if(['sale','profile','void','items'].includes(b.action))return send(await rpc('admin_write_v2',{...args,p_action:b.action,p_data:b.data||{}}));
   if(b.action==='report')return send(await rpc('admin_report_v3',{...args,p_month:cleanMonth(b.month),p_mode:b.mode==='full'?'full':'same'}));
   if(b.action==='compare')return send(await rpc('admin_compare_v3',{...args,p_month:cleanMonth(b.month),p_offset:Math.max(0,parseInt(b.offset)||0),p_sort:b.sort==='visits'?'visits':'paid',p_mode:b.mode==='full'?'full':'same'}));

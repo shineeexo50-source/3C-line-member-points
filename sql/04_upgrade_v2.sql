@@ -98,7 +98,7 @@ begin
   select * into t from transactions where id=tid or (ext is not null and external_id=ext) order by (id=tid) desc limit 1;
   if found then
    if t.member_id<>m.id or t.gross<>n or t.redeemed<>r or t.occurred_at<>dt or t.items<>its or t.note<>note_text or t.external_id is distinct from ext then raise exception '重複訂單編號的內容不同，請核對原交易'; end if;
-   return jsonb_build_object('id',t.id,'duplicate',true,'earned',t.earned);
+   return jsonb_build_object('id',t.id,'duplicate',true);
   end if;
   select coalesce(sum(earned-redeemed),0) into bal from transactions where member_id=m.id and voided_at is null;
   if r>bal then raise exception '點數餘額不足'; end if;
@@ -109,7 +109,7 @@ begin
   if not found then raise exception '找不到交易'; end if;
   old=to_jsonb(t);
   if p_action='void' then
-   if t.voided_at is not null then return jsonb_build_object('id',t.id,'duplicate',true,'earned',t.earned); end if;
+   if t.voided_at is not null then return jsonb_build_object('id',t.id,'duplicate',true); end if;
    if coalesce(length(trim(p_data->>'reason')),0) not between 1 and 500 then raise exception '請填寫作廢原因'; end if;
    select coalesce(sum(earned-redeemed),0) into bal from transactions where member_id=m.id and voided_at is null;
    if bal-t.earned+t.redeemed<0 then raise exception '點數已被使用，請先處理後續折抵交易'; end if;
@@ -122,7 +122,7 @@ begin
   end if;
   insert into audit(actor,action,member_id,old_data,new_data) values(p_actor,p_action,m.id,old,to_jsonb(t));
  else raise exception '不支援的操作'; end if;
- return jsonb_build_object('id',t.id,'duplicate',false,'earned',t.earned);
+ return jsonb_build_object('id',t.id,'duplicate',false);
 end $$;
 
 create or replace function public.admin_members_v2(p_actor uuid,p_query text default '',p_offset integer default 0) returns jsonb language plpgsql security definer set search_path=public as $$

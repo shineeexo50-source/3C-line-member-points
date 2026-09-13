@@ -11,9 +11,10 @@ export function el(tag,text,cls){const e=document.createElement(tag);if(text!==u
 export function status(message,error=false){const box=$('#status');box.textContent=message;box.className=error?'error':'';}
 let refreshInFlight=null,signingOut=false;
 const READ_ACTIONS=new Set(['session','me','health','audit','ledger','reconcile','backup','search','detail','report','compare','export']);
+function retrySafe(action,data){if(READ_ACTIONS.has(action))return true;const op=String(data?.data?.op||'');return (action==='custom_orders'&&['list','global','staff_list'].includes(op))||(action==='catalog'&&op==='list');}
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function requestOnce(action,data){const r=await fetch('/api/app',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Member-App':'1',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify({action,...data}),signal:AbortSignal.timeout(45000)});let d;try{d=await r.json();}catch{const e=Error('伺服器回應異常，請確認部署完成');e.status=r.status||502;throw e;}if(!r.ok){const e=Error(d.error||'連線失敗');e.status=r.status;throw e;}return d;}
-async function request(action,data){const tries=READ_ACTIONS.has(action)?2:1;let last;for(let i=0;i<tries;i++){try{return await requestOnce(action,data);}catch(e){last=e;const retryable=!e.status||[429,502,503,504].includes(e.status);if(i+1>=tries||!retryable)throw e;await wait(260+Math.random()*240);}}throw last;}
+async function request(action,data){const tries=retrySafe(action,data)?2:1;let last;for(let i=0;i<tries;i++){try{return await requestOnce(action,data);}catch(e){last=e;const retryable=!e.status||[429,502,503,504].includes(e.status);if(i+1>=tries||!retryable)throw e;await wait(260+Math.random()*240);}}throw last;}
 export async function api(action,data={}){
  if(action==='login')signingOut=false;
  if(action==='logout'){signingOut=true;if(refreshInFlight)await refreshInFlight.catch(()=>{});try{return await request(action,data);}catch(e){signingOut=false;throw e;}}

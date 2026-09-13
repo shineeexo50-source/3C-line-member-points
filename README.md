@@ -1,49 +1,53 @@
-> 精簡上傳版：已移除根目錄重複程式、帶括號的舊副本及可自動產生的 dist/。保留 api/、public/、scripts/、sql/、templates/、tests/ 與部署設定。
-> 解壓縮後，進入 3C-line-member-points-main 資料夾，將裡面的所有檔案與資料夾上傳到原儲存庫根目錄。請先清除舊重複檔案；只上傳新版不會自動刪除 GitHub 舊檔。
-> Vercel 會執行 npm run build 自動產生 dist/，不需要手動上傳 dist/。10% 回饋規則保持不變。既有 V3 資料庫仍須先執行 sql/08_upgrade_reward_10pct.sql。
+# v3.9.0 管理端全新升級
 
-> 本次修正：已同步實際建置使用的 public/、sql/、tests/，並重新產生 dist/。既有 V3 資料庫請執行 sql/08_upgrade_reward_10pct.sql 後再部署。保留既有外觀設定。
+本版依展示稿重做管理端資訊架構，保留原本會員、點數、結帳、報表與備份安全流程，新增全店客訂中心、商品管理、庫存管理、店員啟用／停用與集中式系統設定。
 
-# 10% 回饋／預設淺色｜v3.7.3-rebate10-light
+## 升級順序
+1. 先確認既有 v3.8.0 已完成 `sql/08_upgrade_v3_8_custom_orders.sql`。
+2. 在 Supabase SQL Editor 執行 `sql/09_upgrade_v3_9_admin_ui.sql`。
+3. 部署新版網站。
+4. 若要使用 LINE 一鍵通知，Vercel 環境變數仍需有 `LINE_CHANNEL_ACCESS_TOKEN`。
 
-本版以提供的「v3.7.2 回饋 5%」完整版修改。
-每筆折抵後實付每滿 100 元贈 10 點，1 點折 1 元。未滿百元部分不跨筆累積。
-例：99 元 → 0 點；100 元 → 10 點；150 元 → 10 點；200 元 → 20 點；500 元 → 50 點。
-
-外觀沿用原 public/ 程式設定，本次僅調整回饋相關功能。
-
-【已有網站／資料庫】
-1. 先備份資料庫，暫停入帳並關閉舊管理頁。
-2. 在原 Supabase 專案的 SQL Editor，貼上 sql/08_upgrade_reward_10pct.sql 全部內容並執行。此檔適用原 V3 的 5% 或 10% 資料庫，可重跑；不要重跑 01_setup.sql。
-3. 更新原 GitHub 專案：上傳 line-member-points 裡的全部程式到原位置，不要只上傳 ZIP。
-4. 保留 Vercel 原環境變數，等新版部署 Ready。
-5. 重新開啟會員頁與管理頁；/config.json 的 version 應為 3.7.3-rebate10-light。
-
-舊交易保留原已發點數，不追溯補發。升級後新增的交易（含補登與匯入）使用每滿百元 10 點。
-資料庫及網站都要更新，只更新網頁不會改變伺服器實際入帳規則。
-
-【從 0 建置】
-在全新 Supabase 專案依序執行 SQL 01、04、06、08，再依 README 設定管理員、LINE 和部署。備份還原的新專案也要先執行這四份 SQL。
-新版備份支援混合歷史 5%／10% 交易，也支援原 5% 或 10% 業務備份；還原只能在空的業務資料表執行。
-原附 PNG 僅供外觀參考，正式回饋及模式以新版程式為準。
+## v3.9.0 主要優化
+- 左側固定管理選單與手機抽屜選單，功能位置固定。
+- 客訂中心：全店客訂搜尋、進行中／未通知／已完成篩選、快速付清、LINE 通知。
+- 商品／庫存：商品名稱、SKU、售價、目前庫存、低庫存提醒；低庫存自動優先顯示。
+- 店員管理：啟用／停用，停用不破壞歷史客訂紀錄。
+- 客訂新增備註欄位。
+- 系統設定集中入口：資料庫狀態、CSV 匯入、點數紀錄、備份還原、外觀。
+- 讀取操作才允許自動重試；新增／修改類操作不自動重送，降低網路抖動造成重複寫入的風險。
+- v3.9 備份格式會包含商品庫存、客訂、店員與既有業務資料。
 
 ---
 
-以下為原完整操作教學；本版更新步驟與版本號以上方說明為準。
+# v3.8.0 客訂商品升級
+
+本版新增會員客訂商品追蹤：訂購日期時間、品名、訂金、已付訂金、已付清、負責店員、已通知，以及 LINE 官方帳號一鍵通知。
+
+從 v3.7.2 升級時：
+1. 先照原本方式備份。
+2. 在 Supabase SQL Editor 執行 `sql/08_upgrade_v3_8_custom_orders.sql`。
+3. Vercel 環境變數新增 `LINE_CHANNEL_ACCESS_TOKEN`（Messaging API Channel access token）。
+4. 重新部署。若尚未設定 Messaging API，客訂本身仍可使用，只有「LINE 一鍵通知」會提示尚未設定。
+5. LINE Login Channel 與 Messaging API Channel 應使用同一個 LINE Developers Provider，才能以既有會員的 LINE userId 推播。
+
+> LINE OA Manager 沒有穩定公開的「依 userId 直接跳到指定一對一聊天室」介面，因此本版採官方 Messaging API 直接推播；送出成功後才會自動勾選「已通知」。
+
+---
 
 # C_寫實微可愛版｜完整詳細操作手冊
 
-**網站版本：3.7.3-rebate10-light｜資料庫：V3＋08 回饋升級**
+**網站版本：3.1.2｜資料庫版本：3.0.0｜2026-09-11**
 
 程式已完成升級、建置與本機驗證。這份 ZIP 不會自動更新你的線上系統；請依「既有系統升級」完成 SQL 與 GitHub 更新，再測試 LINE。
 
 ## 0. 本檔用途與版本
 
-**這是 C_寫實微可愛版 的完整詳細操作版，網站 3.7.3-rebate10-light，資料庫 V3＋08 回饋升級。** 寫實銀色手機、微笑螢幕、白色耳機與薄荷綠配件，搭配深藍會員卡。
+**這是 C_寫實微可愛版 的完整詳細操作版，網站 3.1.2，資料庫 3.0.0。** 寫實銀色手機、微笑螢幕、白色耳機與薄荷綠配件，搭配深藍會員卡。
 
 本包包含完整程式、SQL、驗收腳本、CSV 範本與本份詳細手冊。下方保留從零建立 Supabase、GitHub、Vercel、LINE Developers 的逐步設定，以及登入、管理、圖表、匯入匯出、備份還原的全部操作。
 
-已經有 V3 資料庫的使用者：上傳本包 line-member-points 資料夾裡的程式到目前 repository 原路徑，保留既有環境變數，部署後核對網站版本 3.7.3-rebate10-light；本次需先執行 sql/08_upgrade_reward_10pct.sql，再更新網站。
+已經有 V3 資料庫的使用者：上傳本包 line-member-points 資料夾裡的程式到目前 repository 原路徑，保留既有環境變數，部署後核對網站版本 3.1.2；不再執行 SQL。選擇另一種風格時，也用相同方法更新程式，資料不變。
 
 從零建立新資料庫的使用者：依第 4 節順序執行 01 → 04 → 06，再建立管理員。舊 V1／V2 資料庫才依第 2 節升級；已有資料不要重跑 01。
 
@@ -108,7 +112,7 @@ A、B、C 是可互換的外觀版本，不是兩套要同時安裝的系統。�
 2. 選擇暫時沒有店員入帳的時段更新，避免新舊管理頁同時操作。
 3. Supabase → SQL Editor → New query。
 4. 打開 `sql/04_upgrade_v2.sql`，**複製全部內容**貼上 → Run。
-5. 接著以 New query 執行 `sql/06_upgrade_v3.sql`，再執行 `sql/08_upgrade_reward_10pct.sql`，成功後才更新網站。此 SQL 新增 items／external_id、索引與 v2 函式，不刪會員、交易或點數。可重跑；大量資料建立索引可能需要時間。
+5. 接著以 New query 執行 `sql/06_upgrade_v3.sql`，成功後才更新網站。此 SQL 新增 items／external_id、索引與 v2 函式，不刪會員、交易或點數。可重跑；大量資料建立索引可能需要時間。
 6. **舊系統不要重跑 `01_setup.sql`，也不要刪除舊表。**
 7. GitHub 打開現有 repository，把解壓後的程式檔案更新到原本位置 → Commit changes。Root 應直接看到 package.json、api、public、scripts。
 8. 必須新增／更新的檔案見下一節。不要只換 public/index.html 或上傳 ZIP 本身。
@@ -159,7 +163,7 @@ A、B、C 是可互換的外觀版本，不是兩套要同時安裝的系統。�
 ### A. Supabase
 1. 登入 https://supabase.com/dashboard → New project，建立新的專案並保存資料庫密碼。
 2. SQL Editor → New query → 貼上 `sql/01_setup.sql` 全部 → Run。
-3. 再開 New query → 貼上 `sql/04_upgrade_v2.sql` 全部 → Run；接著再開 New query 執行 `sql/06_upgrade_v3.sql`；最後執行 `sql/08_upgrade_reward_10pct.sql`。
+3. 再開 New query → 貼上 `sql/04_upgrade_v2.sql` 全部 → Run；接著再開 New query 執行 `sql/06_upgrade_v3.sql`。
 4. Authentication → Users → Add user → Create new user，填管理員 Email 與自行設定的密碼；有 Auto Confirm 時勾選。
 5. 打開 `sql/02_add_admin.sql`，把 `YOUR_ADMIN_EMAIL` 換成剛建立的 Email，再於 SQL Editor 執行。
 6. Project Settings／API Keys／Connect 取得 Project URL、Publishable（或 anon）key、Secret（或 service_role）key。
@@ -350,7 +354,7 @@ PGlite 是本機 PostgreSQL 測試環境，不代表已測過你的 Supabase 網
 |---|---|
 | Cannot find module scripts/build.mjs | GitHub 根目錄必須有 scripts 資料夾與 build.mjs，路徑不可少一層 |
 | 缺少 SQL 函式 | 依序完整執行 04_upgrade_v2.sql、06_upgrade_v3.sql，不能只貼幾行 |
-| 仍是舊畫面 | 開正式網址 /config.json，version 應為 3.7.3-rebate10-light；若不是，核對 GitHub package.json 與 Vercel Source Commit。若是，關閉舊視窗再開管理端，核對頁尾版本 |
+| 仍是舊畫面 | 開正式網址 /config.json，version 應為 3.1.2；若不是，核對 GitHub package.json 與 Vercel Source Commit。若是，關閉舊視窗再開管理端，核對頁尾版本 |
 | config.json 缺少 LIFF_ID | Vercel 添加 LIFF_ID，Save 後 Redeploy |
 | 管理員沒有權限 | Authentication 建 User 後還需把該 UUID 加入 admins；用 02_add_admin.sql |
 | 自己可登入，客戶不能 | LINE Login channel 是否 Published，LIFF openid／profile 是否勾選 |
@@ -375,7 +379,7 @@ PGlite 是本機 PostgreSQL 測試環境，不代表已測過你的 Supabase 網
 1. 管理端「備份與還原」選取先前保存的 JSON。
 2. 檔案只在瀏覽器內驗證，不上傳還原資料到 API。確認備份日期、會員筆數、交易筆數及點數合計。
 3. 「下載還原演練 SQL」會產生結尾為 ROLLBACK 的完整 SQL。
-4. **演練環境必須是空的業務資料表，且已執行 01、04、06、08。原管理員 Auth UUID 也必須存在。** 單純用同一 Email 建新帳號不代表 UUID 相同。
+4. **演練環境必須是空的業務資料表，且已執行 01、04、06。原管理員 Auth UUID 也必須存在。** 單純用同一 Email 建新帳號不代表 UUID 相同。
 5. 若使用全新的 Supabase 專案，先按官方完整備份還原流程恢復 Auth；不能只靠業務 JSON 重建密碼與登入帳號。不要手動插入假 Auth UUID 或修改備份繞過檢查。
 6. 在符合條件的測試環境 SQL Editor 執行演練，看到「還原核對通過」及正確筆數；結尾回滾，資料不保留。
 7. 校驗碼只能偵測檔案是否變動，不是數位簽章。只使用自己保存且來源可信的備份。
@@ -446,14 +450,14 @@ supabase db dump --db-url "你的資料庫連線字串" -f data.sql --use-copy -
 - 移除客戶會員卡 Code 128 / MD2000 條碼顯示，改以大型 QR Code 為唯一掃描識別。
 - 客戶 QR 會導向 `/admin.html?member=<會員ID>&source=qr`；店員可直接使用 iPhone 相機掃描。若管理端已登入會直接開啟會員，未登入則登入後接續開啟。
 - 客戶端與管理端採 iOS 27 Liquid Glass 靈感：高對比半透明材質、浮動工具列、玻璃按鈕與更清楚的內容層級。
-- 歷史 v3.7 更新當時不需要資料庫 migration（本次回饋更新需執行 08）；v3.5.3 的短會員碼 migration 不再是必要條件。
+- 從 v3.1.2 升級此版本不需要資料庫 migration；v3.5.3 的短會員碼 migration 不再是必要條件。
 
 ## v3.7.0 Checkout-first admin + QR camera lookup
 - 會員頁改為「新增消費優先」：結帳區約佔桌面主畫面 70%+，會員資料縮成右側小卡並預設收合編輯欄位。
 - 新增消費拆成 3 個高辨識步驟：商品與金額、點數折抵、確認收款；「本次實付」放大顯示，儲存按鈕加大。
 - 管理端 QR 掃描按鈕改為一鍵開後鏡頭；成功辨識會員 QR 後直接開啟該會員與新增消費。
 - QR 掃描採漸進相容：支援 BarcodeDetector 的瀏覽器使用原生辨識；其他瀏覽器載入 jsQR 相容層。若瀏覽器/權限阻擋，客戶 QR 本身仍是管理端直達連結，可由手機系統相機掃描後直接開會員。
-- 歷史版本的 API 與 SQL 無變更；本次回饋更新需先執行 08。
+- API 與 SQL 無變更，從 3.1.2 升級不需要 migration。
 
 ## v3.7.2 Newest-member checkout directory
 
